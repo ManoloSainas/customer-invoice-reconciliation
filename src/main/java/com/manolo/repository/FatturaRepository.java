@@ -34,7 +34,12 @@ public class FatturaRepository {
         fattura.setClienteNome(datiFattura[2]);
         fattura.setDataEmissione(LocalDate.parse(datiFattura[3]));
         fattura.setValuta(datiFattura[4]);
-        fattura.setImporto(new BigDecimal(datiFattura[5]));
+
+        String importo = datiFattura[5];
+
+        if (!importo.isBlank()) {
+            fattura.setImporto(importo);
+        }
 
         return fattura;
     }

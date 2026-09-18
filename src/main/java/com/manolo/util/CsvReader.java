@@ -1,7 +1,11 @@
 package com.manolo.util;
 
-import java.io.BufferedReader;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVRecord;
+
 import java.io.FileReader;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -10,20 +14,24 @@ public class CsvReader {
     public List<String[]> getCSV(String percorso) {
 
         List<String[]> dati = new ArrayList<>();
-        String riga;
 
-        try (BufferedReader br = new BufferedReader(new FileReader(percorso))) {
+        try (CSVParser parser = CSVFormat.DEFAULT.builder()
+                .setHeader()
+                .setSkipHeaderRecord(true)
+                .get()
+                .parse(new FileReader(percorso))) {
 
-            br.readLine();
+            for (CSVRecord record : parser) {
+                String[] campi = new String[record.size()];
 
-            while ((riga = br.readLine()) != null) {
+                for (int i = 0; i < record.size(); i++) {
+                    campi[i] = record.get(i);
+                }
 
-                String[] campi = riga.split(",", -1);
                 dati.add(campi);
             }
 
-        } catch (Exception e) {
-
+        } catch (IOException e) {
             e.printStackTrace();
         }
 

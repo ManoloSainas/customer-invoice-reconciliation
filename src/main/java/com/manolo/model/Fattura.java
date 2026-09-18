@@ -10,7 +10,7 @@ public class Fattura {
     private String clienteNome;
     private LocalDate dataEmissione;
     private String valuta;
-    private BigDecimal importo;
+    private String importo;
 
     public String getIdFattura() {
         return idFattura;
@@ -52,11 +52,11 @@ public class Fattura {
         this.valuta = valuta;
     }
 
-    public BigDecimal getImporto() {
+    public String getImporto() {
         return importo;
     }
 
-    public void setImporto(BigDecimal importo) {
+    public void setImporto(String importo) {
         this.importo = importo;
     }
 }
