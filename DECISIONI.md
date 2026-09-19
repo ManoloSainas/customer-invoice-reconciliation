@@ -50,11 +50,16 @@
 * Una risposta `invalid` indica che la partita IVA è stata verificata ma risulta formalmente errata o inesistente.
 * Una risposta `error` indica un errore temporaneo del servizio VIES simulato. L'errore non interrompe l'elaborazione dell'intero batch e viene riportato nel risultato della riconciliazione.
 * Una risposta `non_supportato` indica che il Paese della partita IVA non è coperto dal servizio VIES.
-* Una partita IVA assente dal mock VIES non viene considerata automaticamente invalida, ma come `non_verificata`, distinguendo l'assenza della risposta da una risposta esplicita `invalid`.
+* Una partita IVA assente dal mock VIES non viene considerata automaticamente invalida, ma come `NON_VERIFICATA`, distinguendo l'assenza della risposta da una risposta esplicita `invalid`.
+* Una partita IVA mancante nel dato cliente viene rappresentata come `MANCANTE`, distinguendola sia da una partita IVA esplicitamente `INVALID` sia da una partita IVA presente ma non verificabile tramite il mock.
 * Il risultato della verifica VIES viene rappresentato separatamente dal cliente tramite `RisultatoVies`, senza modificare `Cliente`.
-* L'esito VIES viene rappresentato tramite l'enum `EsitoVies`, con i valori `VALID`, `INVALID`, `ERROR`, `NON_SUPPORTATO` e `NON_VERIFICATA`. Non viene utilizzata una lista di problemi perché la verifica produce un singolo esito per partita IVA.
+* L'esito VIES viene rappresentato tramite l'enum `EsitoVies`, con i valori `VALID`, `INVALID`, `ERROR`, `NON_SUPPORTATO`, `NON_VERIFICATA` e `MANCANTE`. Non viene utilizzata una lista di problemi perché la verifica produce un singolo esito per partita IVA.
 * Il mock VIES viene letto tramite Jackson (`ObjectMapper`) invece di implementare manualmente il parsing del JSON. La libreria viene utilizzata per estrarre la sezione `risposte` e convertirla direttamente in una `Map<String, String>`.
-* La responsabilità del caricamento del mock è separata dalla logica di verifica: `ViesRepository` si occupa della lettura dei dati, mentre `ViesService` interpreterà gli esiti restituiti dal mock.
+* La responsabilità del caricamento del mock è separata dalla logica di verifica: `ViesRepository` si occupa della lettura dei dati, mentre `ViesService` interpreta gli esiti restituiti dal mock.
+* La verifica VIES viene effettuata sui clienti effettivamente associati ad almeno una fattura. I clienti presenti nel registro ma non coinvolti in alcuna fattura non vengono verificati, poiché la verifica non produrrebbe informazioni necessarie alla riconciliazione corrente.
+* La verifica VIES viene effettuata una sola volta per ciascun cliente associato, anche quando lo stesso cliente compare in più fatture. Il risultato VIES è quindi riferito al cliente e non alla singola fattura, evitando verifiche e risultati duplicati.
+* Se una fattura non può essere associata a un cliente, il `ViesService` non produce un esito VIES per quella fattura e lascia la gestione del problema alla fase di riconciliazione finale.
+* Il `ViesService` si occupa esclusivamente di interpretare le risposte del mock VIES e produrre i relativi `RisultatoVies`, senza gestire i problemi di associazione delle fatture.
 
 ## Associazione fatture-clienti
 
@@ -62,7 +67,7 @@
 * Se `cliente_id` è presente ma non corrisponde ad alcun cliente nel registro, viene tentata una seconda associazione tramite `cliente_nome` normalizzato.
 * Se `cliente_id` è mancante, viene utilizzato direttamente `cliente_nome` come criterio alternativo.
 * La corrispondenza tramite nome viene accettata automaticamente solo quando identifica un unico cliente.
-* Se l'associazione tramite nome riesce dopo un ID mancante o inesistente, la fattura viene associata ma il problema relativo all'ID viene comunque mantenuto nel risultato.
+* Se `cliente_id` è mancante o inesistente e l'associazione tramite nome riesce, la fattura viene associata ma il problema relativo all'ID viene comunque mantenuto nel risultato.
 * In caso di nessuna corrispondenza tramite nome, la fattura non viene associata e viene registrato il relativo problema.
 * In caso di più clienti con lo stesso nome, la fattura non viene associata automaticamente per evitare una scelta arbitraria.
 * L'associazione utilizza i risultati della normalizzazione dei clienti e delle fatture, così da confrontare dati già resi coerenti.

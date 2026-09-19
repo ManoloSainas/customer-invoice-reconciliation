@@ -1,11 +1,17 @@
 package com.manolo;
 
-import com.manolo.model.*;
+import com.manolo.model.Cliente;
+import com.manolo.model.Fattura;
+import com.manolo.model.RisultatoAssociazione;
+import com.manolo.model.RisultatoNormalizzazioneCliente;
+import com.manolo.model.RisultatoNormalizzazioneFattura;
+import com.manolo.model.RisultatoVies;
 import com.manolo.repository.ClienteRepository;
 import com.manolo.repository.FatturaRepository;
 import com.manolo.repository.ViesRepository;
 import com.manolo.service.AssociazioneService;
 import com.manolo.service.NormalizzazioneService;
+import com.manolo.service.ViesService;
 
 import java.util.List;
 import java.util.Map;
@@ -14,12 +20,14 @@ public class Main {
 
     public static void main(String[] args) {
 
+        // Caricamento dati
         ClienteRepository clienteRepository = new ClienteRepository();
         FatturaRepository fatturaRepository = new FatturaRepository();
 
         Map<String, Cliente> clienti = clienteRepository.getClientiCSV();
         List<Fattura> fatture = fatturaRepository.getFattureCSV();
 
+        // Normalizzazione
         NormalizzazioneService normalizzazioneService =
                 new NormalizzazioneService(clienti, fatture);
 
@@ -29,18 +37,19 @@ public class Main {
         List<RisultatoNormalizzazioneFattura> fattureNormalizzate =
                 normalizzazioneService.normalizzaFatture();
 
+        // Associazione fatture-clienti
         AssociazioneService associazioneService =
                 new AssociazioneService(
                         clientiNormalizzati,
                         fattureNormalizzate
                 );
 
-        List<RisultatoAssociazione> risultati =
+        List<RisultatoAssociazione> risultatiAssociazione =
                 associazioneService.associa();
 
         System.out.println("===== ASSOCIAZIONE FATTURE-CLIENTI =====");
 
-        for (RisultatoAssociazione risultato : risultati) {
+        for (RisultatoAssociazione risultato : risultatiAssociazione) {
 
             String idFattura = risultato.getFattura().getIdFattura();
 
@@ -63,14 +72,26 @@ public class Main {
             );
         }
 
+        // Verifica VIES
         ViesRepository viesRepository = new ViesRepository();
 
-        Map<String, String> risposteVies = viesRepository.getRisposteVies();
+        ViesService viesService = new ViesService(viesRepository);
 
-        System.out.println("===== VIES MOCK =====");
+        List<RisultatoVies> risultatiVies =
+                viesService.verifica(risultatiAssociazione);
 
-        risposteVies.forEach((partitaIva, esito) ->
-                System.out.println(partitaIva + " | " + esito)
-        );
+        System.out.println();
+        System.out.println("===== VERIFICA VIES =====");
+
+        for (RisultatoVies risultato : risultatiVies) {
+
+            System.out.println(
+                    risultato.getCliente().getIdCliente()
+                            + " | "
+                            + risultato.getPartitaIva()
+                            + " | "
+                            + risultato.getEsito()
+            );
+        }
     }
 }
