@@ -75,12 +75,25 @@
 * L'associazione viene rappresentata tramite `RisultatoAssociazione` invece di modificare `Fattura`, mantenendo separati i dati di input dai risultati dell'elaborazione.
 * Il metodo utilizzato per l'associazione viene rappresentato tramite l'enum `MetodoAssociazione`, con valori distinti per associazione tramite ID e tramite nome.
 
+## Conversione delle valute
+
+* Gli importi in EUR non richiedono una conversione e vengono mantenuti come importi originali.
+* Per i clienti con un tasso USD contrattuale valido, le fatture in USD vengono convertite utilizzando esclusivamente il tasso contrattuale indicato nel registro clienti, indipendentemente dalla data della fattura.
+* Per le altre valute, il tasso storico viene richiesto a Frankfurter utilizzando la data di emissione della fattura e il provider ECB.
+* Gli importi convertiti in EUR vengono arrotondati a due cifre decimali utilizzando `RoundingMode.HALF_UP`, in modo da rappresentare il risultato monetario in centesimi di euro.
+* Un errore rilevato durante la normalizzazione non rende automaticamente la fattura non processabile per tutte le fasi successive. Ogni fase verifica autonomamente la presenza dei dati necessari alla propria elaborazione.
+* Ad esempio, la mancanza dell'ID cliente non impedisce la conversione se la fattura viene successivamente associata tramite nome e sono disponibili importo, valuta e data. Al contrario, la mancanza dell'importo o della valuta impedisce la conversione.
+* Se la fattura non può essere associata a un cliente, non viene effettuata la conversione poiché manca un'associazione affidabile necessaria alla riconciliazione.
+* Se Frankfurter non restituisce un tasso utilizzabile, la fattura viene mantenuta nel report ma viene considerata non processabile e non viene incluso alcun importo EUR nei totali.
+* Gli errori del servizio Frankfurter, come una valuta non supportata, non interrompono l'elaborazione delle altre fatture.
+
 ## Gestione degli errori di elaborazione
 
 * L'elaborazione viene eseguita a livello di singola fattura: un errore su una fattura non deve interrompere l'elaborazione delle altre.
 * Quando un dato può essere normalizzato in modo univoco e affidabile, viene normalizzato e l'elaborazione prosegue.
 * Quando un dato è mancante o non può essere interpretato in modo affidabile, la fattura viene considerata non processabile e viene esclusa dai calcoli, mantenendo comunque traccia dell'errore nel risultato finale.
 * Gli errori temporanei relativi a servizi esterni non interrompono l'elaborazione dell'intero batch.
+* Una fattura non processabile viene comunque inclusa nel risultato finale con l'indicazione del problema, evitando che i dati problematici vengano semplicemente ignorati.
 
 ## Modello di elaborazione
 

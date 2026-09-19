@@ -3,6 +3,7 @@ package com.manolo;
 import com.manolo.model.Cliente;
 import com.manolo.model.Fattura;
 import com.manolo.model.RisultatoAssociazione;
+import com.manolo.model.RisultatoConversione;
 import com.manolo.model.RisultatoNormalizzazioneCliente;
 import com.manolo.model.RisultatoNormalizzazioneFattura;
 import com.manolo.model.RisultatoVies;
@@ -11,11 +12,11 @@ import com.manolo.repository.ClienteRepository;
 import com.manolo.repository.FatturaRepository;
 import com.manolo.repository.ViesRepository;
 import com.manolo.service.AssociazioneService;
+import com.manolo.service.CambioValutaService;
 import com.manolo.service.NormalizzazioneService;
 import com.manolo.service.ViesService;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -27,8 +28,11 @@ public class Main {
         ClienteRepository clienteRepository = new ClienteRepository();
         FatturaRepository fatturaRepository = new FatturaRepository();
 
-        Map<String, Cliente> clienti = clienteRepository.getClientiCSV();
-        List<Fattura> fatture = fatturaRepository.getFattureCSV();
+        Map<String, Cliente> clienti =
+                clienteRepository.getClientiCSV();
+
+        List<Fattura> fatture =
+                fatturaRepository.getFattureCSV();
 
         // Normalizzazione
         NormalizzazioneService normalizzazioneService =
@@ -54,15 +58,18 @@ public class Main {
 
         for (RisultatoAssociazione risultato : risultatiAssociazione) {
 
-            String idFattura = risultato.getFattura().getIdFattura();
+            String idFattura =
+                    risultato.getFattura().getIdFattura();
 
-            String idCliente = risultato.getCliente() != null
-                    ? risultato.getCliente().getIdCliente()
-                    : "NON ASSOCIATO";
+            String idCliente =
+                    risultato.getCliente() != null
+                            ? risultato.getCliente().getIdCliente()
+                            : "NON ASSOCIATO";
 
-            String metodo = risultato.getMetodo() != null
-                    ? risultato.getMetodo().toString()
-                    : "-";
+            String metodo =
+                    risultato.getMetodo() != null
+                            ? risultato.getMetodo().toString()
+                            : "-";
 
             System.out.println(
                     idFattura
@@ -76,9 +83,11 @@ public class Main {
         }
 
         // Verifica VIES
-        ViesRepository viesRepository = new ViesRepository();
+        ViesRepository viesRepository =
+                new ViesRepository();
 
-        ViesService viesService = new ViesService(viesRepository);
+        ViesService viesService =
+                new ViesService(viesRepository);
 
         List<RisultatoVies> risultatiVies =
                 viesService.verifica(risultatiAssociazione);
@@ -97,17 +106,42 @@ public class Main {
             );
         }
 
+        // Conversione valute
         CambioValutaRepository cambioValutaRepository =
                 new CambioValutaRepository();
 
-        BigDecimal tasso =
-                cambioValutaRepository.getTassoCambio(
-                        LocalDate.of(2025, 6, 14),
-                        "GBP"
+        CambioValutaService cambioValutaService =
+                new CambioValutaService(cambioValutaRepository);
+
+        List<RisultatoConversione> risultatiConversione =
+                cambioValutaService.converti(
+                        risultatiAssociazione,
+                        fattureNormalizzate
                 );
 
         System.out.println();
-        System.out.println("===== TEST FRANKFURTER =====");
-        System.out.println("GBP → EUR: " + tasso);
+        System.out.println("===== CONVERSIONE VALUTE =====");
+
+        for (RisultatoConversione risultato : risultatiConversione) {
+
+            Fattura fattura =
+                    risultato.getFattura();
+
+            System.out.println(
+                    fattura.getIdFattura()
+                            + " | "
+                            + risultato.getValutaOriginale()
+                            + " "
+                            + risultato.getImportoOriginale()
+                            + " | EUR "
+                            + risultato.getImportoEuro()
+                            + " | tasso "
+                            + risultato.getTassoCambio()
+                            + " | processabile="
+                            + risultato.isProcessabile()
+                            + " | "
+                            + risultato.getProblema()
+            );
+        }
     }
 }
