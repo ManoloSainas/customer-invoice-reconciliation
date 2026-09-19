@@ -42,6 +42,18 @@ public class NormalizzazioneService {
             List<String> problemi = new ArrayList<>();
             boolean normalizzato = false;
 
+            // ID cliente
+            if (cliente.getIdCliente() == null || cliente.getIdCliente().isBlank()) {
+                problemi.add("ID cliente mancante");
+            } else {
+                String valore = cliente.getIdCliente().trim();
+
+                if (!valore.equals(cliente.getIdCliente())) {
+                    normalizzato = true;
+                    cliente.setIdCliente(valore);
+                }
+            }
+
             // Ragione sociale
             if (cliente.getRagioneSociale() == null || cliente.getRagioneSociale().isBlank()) {
                 problemi.add("Ragione sociale mancante");
@@ -133,6 +145,126 @@ public class NormalizzazioneService {
     }
 
     public List<RisultatoNormalizzazioneFattura> normalizzaFatture() {
-        return null;
+
+        List<RisultatoNormalizzazioneFattura> risultati = new ArrayList<>();
+
+        for (Fattura fattura : fatture) {
+
+            List<String> problemi = new ArrayList<>();
+            boolean normalizzato = false;
+
+            // ID fattura
+            if (fattura.getIdFattura() == null || fattura.getIdFattura().isBlank()) {
+                problemi.add("ID fattura mancante");
+            } else {
+                String valore = fattura.getIdFattura().trim();
+
+                if (!valore.equals(fattura.getIdFattura())) {
+                    normalizzato = true;
+                    fattura.setIdFattura(valore);
+                }
+            }
+
+            // ID cliente
+            if (fattura.getClienteId() == null || fattura.getClienteId().isBlank()) {
+                problemi.add("ID cliente mancante");
+            } else {
+                String valore = fattura.getClienteId().trim();
+
+                if (!valore.equals(fattura.getClienteId())) {
+                    normalizzato = true;
+                    fattura.setClienteId(valore);
+                }
+            }
+
+            // Nome cliente
+            if (fattura.getClienteNome() == null || fattura.getClienteNome().isBlank()) {
+                problemi.add("Nome cliente mancante");
+            } else {
+                String valore = fattura.getClienteNome()
+                        .trim()
+                        .replaceAll("\\s+", " ");
+
+                valore = valore.replaceAll("(?i)S\\.?R\\.?L\\.?$", "SRL");
+                valore = valore.replaceAll("(?i)S\\.?P\\.?A\\.?$", "SPA");
+
+                if (!valore.equals(fattura.getClienteNome())) {
+                    normalizzato = true;
+                    fattura.setClienteNome(valore);
+                }
+            }
+
+            // Data emissione
+            if (fattura.getDataEmissione() == null) {
+                problemi.add("Data emissione mancante");
+            }
+
+            // Valuta
+            if (fattura.getValuta() == null || fattura.getValuta().isBlank()) {
+                problemi.add("Valuta mancante");
+            } else {
+                String valore = fattura.getValuta()
+                        .trim()
+                        .toUpperCase();
+
+                if (!valore.matches("^[A-Z]{3}$")) {
+                    problemi.add("Formato valuta non valido");
+                }
+
+                if (!valore.equals(fattura.getValuta())) {
+                    normalizzato = true;
+                    fattura.setValuta(valore);
+                }
+            }
+
+            // Importo
+            if (fattura.getImporto() == null || fattura.getImporto().isBlank()) {
+                problemi.add("Importo mancante");
+            } else {
+                String valore = fattura.getImporto().trim();
+
+                try {
+                    BigDecimal importo;
+
+                    if (valore.contains(",") && valore.contains(".")) {
+                        valore = valore.replace(".", "").replace(",", ".");
+                    } else if (valore.contains(",")) {
+                        valore = valore.replace(",", ".");
+                    }
+
+                    importo = new BigDecimal(valore);
+
+                    String importoNormalizzato = importo.toPlainString();
+
+                    if (!importoNormalizzato.equals(fattura.getImporto())) {
+                        normalizzato = true;
+                        fattura.setImporto(importoNormalizzato);
+                    }
+
+                } catch (NumberFormatException e) {
+                    problemi.add("Formato importo non valido");
+                }
+            }
+
+            StatoNormalizzazione stato;
+
+            if (!problemi.isEmpty()) {
+                stato = StatoNormalizzazione.ERRORE;
+            } else if (normalizzato) {
+                stato = StatoNormalizzazione.NORMALIZZATO;
+            } else {
+                stato = StatoNormalizzazione.VALIDO;
+            }
+
+            risultati.add(
+                    new RisultatoNormalizzazioneFattura(
+                            fattura,
+                            stato,
+                            problemi
+                    )
+            );
+        }
+
+        return risultati;
     }
 }

@@ -19,11 +19,23 @@
 
 ### Normalizzazione dei clienti
 
+* **ID cliente:** viene considerato un identificativo obbligatorio. Se mancante viene registrato il problema `ID cliente mancante`. Se presente vengono rimossi eventuali spazi iniziali e finali. Non viene effettuata in questa fase alcuna verifica dell'esistenza o unicità dell'identificativo.
 * **Ragione sociale:** vengono rimossi gli spazi iniziali e finali e le sequenze di più spazi vengono ridotte a un singolo spazio, per rendere più affidabile il confronto dei nomi.
 * **Ragione sociale:** vengono inoltre normalizzate alcune forme societarie equivalenti presenti nei dati, ad esempio `S.r.l.`, `S.r.l` e `SRL` vengono rappresentate come `SRL`, mentre `S.p.A.`, `S.p.A`, `SpA` e `SPA` vengono rappresentate come `SPA`. La normalizzazione è limitata alle forme gestite esplicitamente, evitando trasformazioni generiche della ragione sociale che potrebbero alterarne il significato.
 * **Paese:** viene normalizzato al codice ISO 3166-1 alpha-2 tramite una `Map` contenente i valori presenti nel dataset. Con più tempo sarebbe preferibile utilizzare una libreria dedicata alla gestione dei Paesi.
 * **Partita IVA:** viene rimossa la spaziatura e il valore viene convertito in maiuscolo. Se manca il prefisso di due lettere, viene aggiunto utilizzando il codice del Paese precedentemente normalizzato. Viene effettuato un controllo strutturale minimo, senza applicare regole specifiche per ogni Paese. La validità effettiva della partita IVA viene demandata alla verifica VIES. Con più tempo sarebbe stata valutata un'API o una libreria che permetta di verificare la struttura della partita IVA in base al Paese.
 * **Tasso USD contrattuale:** se presente deve essere numerico e maggiore di zero. Un valore assente indica che per il cliente non è previsto un tasso USD contrattuale.
+
+### Normalizzazione delle fatture
+
+* **ID fattura:** viene considerato un identificativo obbligatorio. Se mancante viene registrato il problema `ID fattura mancante`. Se presente vengono rimossi eventuali spazi iniziali e finali. Non viene effettuata in questa fase alcuna verifica dell'unicità dell'identificativo.
+* **ID cliente:** viene considerato un identificativo obbligatorio per l'associazione della fattura al cliente. Se mancante viene registrato il problema `ID cliente mancante`. Se presente vengono rimossi eventuali spazi iniziali e finali. La verifica dell'esistenza dell'ID nel registro clienti viene demandata alla successiva fase di associazione.
+* **Nome cliente:** viene normalizzato con le stesse regole utilizzate per la ragione sociale dei clienti, in modo che i dati provenienti dalle due sorgenti siano confrontabili. Vengono rimossi gli spazi iniziali e finali, ridotti gli spazi multipli e normalizzate le forme societarie gestite esplicitamente, come `S.r.l.` → `SRL` e `S.p.A.` → `SPA`.
+* **Associazione cliente:** la normalizzazione della fattura non verifica l'esistenza dell'`idCliente` e non associa la fattura al cliente. L'associazione viene effettuata in una fase successiva.
+* **Data di emissione:** viene rappresentata tramite `LocalDate`. La validità della data viene quindi demandata al parsing della data durante il caricamento; una data assente viene invece registrata come problema.
+* **Valuta:** viene rimossa la spaziatura iniziale e finale e il codice viene convertito in maiuscolo. Viene verificato che abbia il formato di una sigla composta da tre lettere. La verifica della disponibilità del relativo tasso di cambio viene demandata alla fase successiva di conversione valutaria.
+* **Importo:** viene mantenuto come `String` durante il caricamento per preservare il formato originale e viene convertito durante la normalizzazione in un formato numerico coerente. Sono supportati valori come `1234.56`, `1234,56` e `1.234,56`. Un importo mancante o non interpretabile viene considerato un errore.
+* **Importi negativi:** vengono considerati valori validi dal punto di vista della normalizzazione, purché siano numericamente interpretabili. Non bloccano quindi l'elaborazione, poiché possono rappresentare casi legittimi come storni o note di credito. Un'eventuale segnalazione come anomalia di business viene demandata alla fase di riconciliazione.
 
 ## Parsing CSV
 
