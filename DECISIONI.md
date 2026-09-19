@@ -35,7 +35,7 @@
 * **Data di emissione:** viene rappresentata tramite `LocalDate`. La validità della data viene quindi demandata al parsing della data durante il caricamento; una data assente viene invece registrata come problema.
 * **Valuta:** viene rimossa la spaziatura iniziale e finale e il codice viene convertito in maiuscolo. Viene verificato che abbia il formato di una sigla composta da tre lettere. La verifica della disponibilità del relativo tasso di cambio viene demandata alla fase successiva di conversione valutaria.
 * **Importo:** viene mantenuto come `String` durante il caricamento per preservare il formato originale e viene convertito durante la normalizzazione in un formato numerico coerente. Sono supportati valori come `1234.56`, `1234,56` e `1.234,56`. Un importo mancante o non interpretabile viene considerato un errore.
-* **Importi negativi:** vengono considerati valori validi dal punto di vista della normalizzazione, purché siano numericamente interpretabili. Non bloccano quindi l'elaborazione, poiché possono rappresentare casi legittimi come storni o note di credito. Un'eventuale segnalazione come anomalia di business viene demandata alla fase di riconciliazione.
+* **Importi negativi:** vengono considerati valori validi dal punto di vista della normalizzazione, purché siano numericamente interpretabili. Non bloccano quindi l'elaborazione, poiché possono rappresentare casi legittimi come storni o note di credito.
 
 ## Parsing CSV
 
@@ -60,6 +60,7 @@
 * La verifica VIES viene effettuata una sola volta per ciascun cliente associato, anche quando lo stesso cliente compare in più fatture. Il risultato VIES è quindi riferito al cliente e non alla singola fattura, evitando verifiche e risultati duplicati.
 * Se una fattura non può essere associata a un cliente, il `ViesService` non produce un esito VIES per quella fattura e lascia la gestione del problema alla fase di riconciliazione finale.
 * Il `ViesService` si occupa esclusivamente di interpretare le risposte del mock VIES e produrre i relativi `RisultatoVies`, senza gestire i problemi di associazione delle fatture.
+* Gli esiti VIES diversi da `VALID` vengono riportati come anomalie nel risultato della riconciliazione. Un'anomalia VIES non rende automaticamente la fattura non processabile, se i dati necessari alla riconciliazione economica sono comunque disponibili.
 
 ## Associazione fatture-clienti
 
@@ -86,6 +87,7 @@
 * Se la fattura non può essere associata a un cliente, non viene effettuata la conversione poiché manca un'associazione affidabile necessaria alla riconciliazione.
 * Se Frankfurter non restituisce un tasso utilizzabile, la fattura viene mantenuta nel report ma viene considerata non processabile e non viene incluso alcun importo EUR nei totali.
 * Gli errori del servizio Frankfurter, come una valuta non supportata, non interrompono l'elaborazione delle altre fatture.
+* Il tasso di cambio utilizzato viene conservato nel risultato della conversione insieme all'importo originale e all'importo convertito, così da rendere il risultato verificabile.
 
 ## Gestione degli errori di elaborazione
 
@@ -94,6 +96,26 @@
 * Quando un dato è mancante o non può essere interpretato in modo affidabile, la fattura viene considerata non processabile e viene esclusa dai calcoli, mantenendo comunque traccia dell'errore nel risultato finale.
 * Gli errori temporanei relativi a servizi esterni non interrompono l'elaborazione dell'intero batch.
 * Una fattura non processabile viene comunque inclusa nel risultato finale con l'indicazione del problema, evitando che i dati problematici vengano semplicemente ignorati.
+* La proprietà `processabile` rappresenta la possibilità di completare la riconciliazione economica della singola fattura. Le anomalie informative, come un esito VIES diverso da `VALID`, vengono invece mantenute nella lista dei problemi senza bloccare automaticamente il calcolo dell'importo EUR.
+
+## Riconciliazione finale
+
+* La riconciliazione finale combina i risultati delle fasi precedenti senza ricalcolare le operazioni già effettuate.
+* Per ogni fattura viene creato un `RisultatoRiconciliazione` che contiene la fattura, il cliente associato, il metodo di associazione, l'esito VIES, l'importo originale, la valuta originale, l'importo in EUR, il tasso di cambio, lo stato di processabilità e l'elenco dei problemi.
+* Il risultato della riconciliazione viene mantenuto separato da `Fattura`, così da non modificare il dato di input con informazioni prodotte durante l'elaborazione.
+* I problemi provenienti dalle diverse fasi vengono aggregati nel risultato finale, permettendo di conservare sia le anomalie non bloccanti sia gli errori che impediscono la riconciliazione.
+* Una fattura non associata a un cliente non viene considerata processabile e non contribuisce al totale EUR.
+* Una fattura con conversione non disponibile non viene considerata processabile e non contribuisce al totale EUR.
+* Una fattura con un'anomalia VIES può rimanere processabile se l'importo EUR è stato determinato correttamente.
+* Gli importi negativi non vengono esclusi automaticamente dal totale, poiché sono considerati valori numericamente validi e possono rappresentare storni o note di credito.
+
+## Report complessivo
+
+* Il report complessivo viene rappresentato tramite `ReportRiconciliazione`, separato dai risultati delle singole fatture.
+* `ReportRiconciliazione` contiene l'elenco dei risultati per fattura, il numero totale delle fatture, il numero di fatture processabili, il numero di fatture non processabili e il totale EUR riconciliato.
+* Il totale EUR viene calcolato sommando esclusivamente gli importi EUR delle fatture `processabile=true`.
+* Le fatture non processabili rimangono comunque presenti nel report con i relativi problemi, ma non contribuiscono al totale.
+* La stampa finale viene effettuata dopo il completamento delle fasi di elaborazione, mantenendo il `Main` principalmente come orchestratore del flusso.
 
 ## Modello di elaborazione
 
@@ -105,3 +127,5 @@
 * Le informazioni prodotte durante l'elaborazione successiva vengono rappresentate separatamente, tramite appositi oggetti risultato.
 * Questa separazione mantiene distinto il dato originale dalla sua elaborazione.
 * L'architettura separa le responsabilità principali in `NormalizzazioneService`, `AssociazioneService`, `ViesService`, `CambioValutaService` e `RiconciliazioneService`, evitando di concentrare tutta la logica in un'unica classe.
+* `RiconciliazioneService` orchestra la composizione dei risultati delle fasi precedenti e costruisce il report finale senza assumere la responsabilità del caricamento dei dati o del calcolo dei tassi di cambio.
+* Il `Main` si limita a coordinare le diverse fasi dell'elaborazione e alla stampa del risultato finale, mantenendo la logica di dominio nei relativi service.

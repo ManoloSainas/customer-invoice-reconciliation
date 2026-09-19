@@ -2,10 +2,12 @@ package com.manolo;
 
 import com.manolo.model.Cliente;
 import com.manolo.model.Fattura;
+import com.manolo.model.ReportRiconciliazione;
 import com.manolo.model.RisultatoAssociazione;
 import com.manolo.model.RisultatoConversione;
 import com.manolo.model.RisultatoNormalizzazioneCliente;
 import com.manolo.model.RisultatoNormalizzazioneFattura;
+import com.manolo.model.RisultatoRiconciliazione;
 import com.manolo.model.RisultatoVies;
 import com.manolo.repository.CambioValutaRepository;
 import com.manolo.repository.ClienteRepository;
@@ -14,9 +16,9 @@ import com.manolo.repository.ViesRepository;
 import com.manolo.service.AssociazioneService;
 import com.manolo.service.CambioValutaService;
 import com.manolo.service.NormalizzazioneService;
+import com.manolo.service.RiconciliazioneService;
 import com.manolo.service.ViesService;
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
@@ -24,9 +26,15 @@ public class Main {
 
     public static void main(String[] args) {
 
-        // Caricamento dati
-        ClienteRepository clienteRepository = new ClienteRepository();
-        FatturaRepository fatturaRepository = new FatturaRepository();
+        // =========================
+        // CARICAMENTO DATI
+        // =========================
+
+        ClienteRepository clienteRepository =
+                new ClienteRepository();
+
+        FatturaRepository fatturaRepository =
+                new FatturaRepository();
 
         Map<String, Cliente> clienti =
                 clienteRepository.getClientiCSV();
@@ -34,7 +42,10 @@ public class Main {
         List<Fattura> fatture =
                 fatturaRepository.getFattureCSV();
 
-        // Normalizzazione
+        // =========================
+        // NORMALIZZAZIONE
+        // =========================
+
         NormalizzazioneService normalizzazioneService =
                 new NormalizzazioneService(clienti, fatture);
 
@@ -44,7 +55,10 @@ public class Main {
         List<RisultatoNormalizzazioneFattura> fattureNormalizzate =
                 normalizzazioneService.normalizzaFatture();
 
-        // Associazione fatture-clienti
+        // =========================
+        // ASSOCIAZIONE
+        // =========================
+
         AssociazioneService associazioneService =
                 new AssociazioneService(
                         clientiNormalizzati,
@@ -54,35 +68,10 @@ public class Main {
         List<RisultatoAssociazione> risultatiAssociazione =
                 associazioneService.associa();
 
-        System.out.println("===== ASSOCIAZIONE FATTURE-CLIENTI =====");
+        // =========================
+        // VERIFICA VIES
+        // =========================
 
-        for (RisultatoAssociazione risultato : risultatiAssociazione) {
-
-            String idFattura =
-                    risultato.getFattura().getIdFattura();
-
-            String idCliente =
-                    risultato.getCliente() != null
-                            ? risultato.getCliente().getIdCliente()
-                            : "NON ASSOCIATO";
-
-            String metodo =
-                    risultato.getMetodo() != null
-                            ? risultato.getMetodo().toString()
-                            : "-";
-
-            System.out.println(
-                    idFattura
-                            + " | "
-                            + idCliente
-                            + " | "
-                            + metodo
-                            + " | "
-                            + risultato.getProblemi()
-            );
-        }
-
-        // Verifica VIES
         ViesRepository viesRepository =
                 new ViesRepository();
 
@@ -92,26 +81,17 @@ public class Main {
         List<RisultatoVies> risultatiVies =
                 viesService.verifica(risultatiAssociazione);
 
-        System.out.println();
-        System.out.println("===== VERIFICA VIES =====");
+        // =========================
+        // CONVERSIONE VALUTE
+        // =========================
 
-        for (RisultatoVies risultato : risultatiVies) {
-
-            System.out.println(
-                    risultato.getCliente().getIdCliente()
-                            + " | "
-                            + risultato.getPartitaIva()
-                            + " | "
-                            + risultato.getEsito()
-            );
-        }
-
-        // Conversione valute
         CambioValutaRepository cambioValutaRepository =
                 new CambioValutaRepository();
 
         CambioValutaService cambioValutaService =
-                new CambioValutaService(cambioValutaRepository);
+                new CambioValutaService(
+                        cambioValutaRepository
+                );
 
         List<RisultatoConversione> risultatiConversione =
                 cambioValutaService.converti(
@@ -119,29 +99,75 @@ public class Main {
                         fattureNormalizzate
                 );
 
+        // =========================
+        // RICONCILIAZIONE
+        // =========================
+
+        RiconciliazioneService riconciliazioneService =
+                new RiconciliazioneService();
+
+        ReportRiconciliazione report =
+                riconciliazioneService.riconcilia(
+                        risultatiAssociazione,
+                        risultatiVies,
+                        risultatiConversione
+                );
+
+        // =========================
+        // REPORT FINALE
+        // =========================
+
         System.out.println();
-        System.out.println("===== CONVERSIONE VALUTE =====");
+        System.out.println("===== RICONCILIAZIONE FINALE =====");
 
-        for (RisultatoConversione risultato : risultatiConversione) {
-
-            Fattura fattura =
-                    risultato.getFattura();
+        for (RisultatoRiconciliazione risultatoRiconciliazione :
+                report.getRisultati()) {
 
             System.out.println(
-                    fattura.getIdFattura()
+                    risultatoRiconciliazione.getFattura().getIdFattura()
+                            + " | Cliente: "
+                            + (risultatoRiconciliazione.getCliente() != null
+                            ? risultatoRiconciliazione.getCliente().getIdCliente()
+                            : "NON ASSOCIATO")
+                            + " | VIES: "
+                            + (risultatoRiconciliazione.getRisultatoVies() != null
+                            ? risultatoRiconciliazione.getRisultatoVies().getEsito()
+                            : "N/D")
                             + " | "
-                            + risultato.getValutaOriginale()
+                            + risultatoRiconciliazione.getValutaOriginale()
                             + " "
-                            + risultato.getImportoOriginale()
-                            + " | EUR "
-                            + risultato.getImportoEuro()
-                            + " | tasso "
-                            + risultato.getTassoCambio()
-                            + " | processabile="
-                            + risultato.isProcessabile()
-                            + " | "
-                            + risultato.getProblema()
+                            + risultatoRiconciliazione.getImportoOriginale()
+                            + " | EUR: "
+                            + risultatoRiconciliazione.getImportoEuro()
+                            + " | Processabile: "
+                            + risultatoRiconciliazione.isProcessabile()
+                            + " | Problemi: "
+                            + risultatoRiconciliazione.getProblemi()
             );
         }
+
+        System.out.println();
+        System.out.println("===== TOTALI =====");
+
+        System.out.println(
+                "Totale fatture: "
+                        + report.getTotaleFatture()
+        );
+
+        System.out.println(
+                "Fatture processabili: "
+                        + report.getFattureProcessabili()
+        );
+
+        System.out.println(
+                "Fatture non processabili: "
+                        + report.getFattureNonProcessabili()
+        );
+
+        System.out.println(
+                "Totale EUR riconciliato: "
+                        + report.getTotaleEuro()
+        );
     }
 }
+
