@@ -53,9 +53,16 @@
 ## Associazione fatture-clienti
 
 * L'associazione viene effettuata prioritariamente tramite `cliente_id`, considerato l'identificativo univoco del cliente.
-* Se `cliente_id` è mancante o non presente nel registro, viene utilizzato `cliente_nome` normalizzato come criterio alternativo.
+* Se `cliente_id` è presente ma non corrisponde ad alcun cliente nel registro, viene tentata una seconda associazione tramite `cliente_nome` normalizzato.
+* Se `cliente_id` è mancante, viene utilizzato direttamente `cliente_nome` come criterio alternativo.
 * La corrispondenza tramite nome viene accettata automaticamente solo quando identifica un unico cliente.
-* In caso di nessuna corrispondenza o di più clienti con lo stesso nome, la fattura non viene associata automaticamente.
+* Se l'associazione tramite nome riesce dopo un ID mancante o inesistente, la fattura viene associata ma il problema relativo all'ID viene comunque mantenuto nel risultato.
+* In caso di nessuna corrispondenza tramite nome, la fattura non viene associata e viene registrato il relativo problema.
+* In caso di più clienti con lo stesso nome, la fattura non viene associata automaticamente per evitare una scelta arbitraria.
+* L'associazione utilizza i risultati della normalizzazione dei clienti e delle fatture, così da confrontare dati già resi coerenti.
+* Un cliente con `StatoNormalizzazione.ERRORE` può comunque essere utilizzato per l'associazione se la sua identità è determinabile in modo affidabile tramite ID o tramite un nome univoco. I problemi di qualità del cliente vengono mantenuti e potranno essere riportati nelle fasi successive.
+* L'associazione viene rappresentata tramite `RisultatoAssociazione` invece di modificare `Fattura`, mantenendo separati i dati di input dai risultati dell'elaborazione.
+* Il metodo utilizzato per l'associazione viene rappresentato tramite l'enum `MetodoAssociazione`, con valori distinti per associazione tramite ID e tramite nome.
 
 ## Gestione degli errori di elaborazione
 
@@ -71,5 +78,6 @@
 * Vengono utilizzati risultati distinti per la normalizzazione di clienti e fatture.
 * Lo stato della normalizzazione è rappresentato da un enum comune a clienti e fatture con i valori `VALIDO`, `NORMALIZZATO` ed `ERRORE`.
 * I risultati della normalizzazione contengono una lista di problemi, in modo da poter registrare più anomalie contemporaneamente senza perderne informazioni.
-* Le informazioni prodotte durante l'elaborazione successiva vengono rappresentate separatamente, tramite un apposito oggetto risultato della riconciliazione.
+* Le informazioni prodotte durante l'elaborazione successiva vengono rappresentate separatamente, tramite appositi oggetti risultato.
 * Questa separazione mantiene distinto il dato originale dalla sua elaborazione.
+* L'architettura separa le responsabilità principali in `NormalizzazioneService`, `AssociazioneService`, `ViesService`, `CambioValutaService` e `RiconciliazioneService`, evitando di concentrare tutta la logica in un'unica classe.

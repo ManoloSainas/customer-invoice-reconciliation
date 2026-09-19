@@ -1,11 +1,9 @@
 package com.manolo;
 
-import com.manolo.model.Cliente;
-import com.manolo.model.Fattura;
-import com.manolo.model.RisultatoNormalizzazioneCliente;
-import com.manolo.model.RisultatoNormalizzazioneFattura;
+import com.manolo.model.*;
 import com.manolo.repository.ClienteRepository;
 import com.manolo.repository.FatturaRepository;
+import com.manolo.service.AssociazioneService;
 import com.manolo.service.NormalizzazioneService;
 
 import java.util.List;
@@ -24,46 +22,43 @@ public class Main {
         NormalizzazioneService normalizzazioneService =
                 new NormalizzazioneService(clienti, fatture);
 
-        // Normalizzazione clienti
-        Map<String, RisultatoNormalizzazioneCliente> risultatiClienti =
+        Map<String, RisultatoNormalizzazioneCliente> clientiNormalizzati =
                 normalizzazioneService.normalizzaClienti();
 
-        System.out.println("\n===== NORMALIZZAZIONE CLIENTI =====");
-
-        for (RisultatoNormalizzazioneCliente risultato : risultatiClienti.values()) {
-
-            Cliente cliente = risultato.getCliente();
-
-            System.out.println(
-                    cliente.getIdCliente() + " | " +
-                            cliente.getRagioneSociale() + " | " +
-                            cliente.getPaese() + " | " +
-                            cliente.getPartitaIva() + " | " +
-                            cliente.getTassoUsdContrattuale() + " | " +
-                            risultato.getStato() + " | " +
-                            risultato.getProblemi()
-            );
-        }
-
-        // Normalizzazione fatture
-        List<RisultatoNormalizzazioneFattura> risultatiFatture =
+        List<RisultatoNormalizzazioneFattura> fattureNormalizzate =
                 normalizzazioneService.normalizzaFatture();
 
-        System.out.println("\n===== NORMALIZZAZIONE FATTURE =====");
+        AssociazioneService associazioneService =
+                new AssociazioneService(
+                        clientiNormalizzati,
+                        fattureNormalizzate
+                );
 
-        for (RisultatoNormalizzazioneFattura risultato : risultatiFatture) {
+        List<RisultatoAssociazione> risultati =
+                associazioneService.associa();
 
-            Fattura fattura = risultato.getFattura();
+        System.out.println("===== ASSOCIAZIONE FATTURE-CLIENTI =====");
+
+        for (RisultatoAssociazione risultato : risultati) {
+
+            String idFattura = risultato.getFattura().getIdFattura();
+
+            String idCliente = risultato.getCliente() != null
+                    ? risultato.getCliente().getIdCliente()
+                    : "NON ASSOCIATO";
+
+            String metodo = risultato.getMetodo() != null
+                    ? risultato.getMetodo().toString()
+                    : "-";
 
             System.out.println(
-                    fattura.getIdFattura() + " | " +
-                            fattura.getClienteId() + " | " +
-                            fattura.getClienteNome() + " | " +
-                            fattura.getDataEmissione() + " | " +
-                            fattura.getValuta() + " | " +
-                            fattura.getImporto() + " | " +
-                            risultato.getStato() + " | " +
-                            risultato.getProblemi()
+                    idFattura
+                            + " | "
+                            + idCliente
+                            + " | "
+                            + metodo
+                            + " | "
+                            + risultato.getProblemi()
             );
         }
     }
