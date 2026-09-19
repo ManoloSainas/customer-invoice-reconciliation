@@ -17,6 +17,14 @@
 * La normalizzazione viene effettuata separatamente per clienti e fatture.
 * I dati provenienti dai file vengono mantenuti il più possibile nel loro formato originale durante il caricamento. La conversione di valori che richiedono interpretazione, come gli importi monetari, viene demandata alla fase di normalizzazione.
 
+### Normalizzazione dei clienti
+
+* **Ragione sociale:** vengono rimossi gli spazi iniziali e finali e le sequenze di più spazi vengono ridotte a un singolo spazio, per rendere più affidabile il confronto dei nomi.
+* **Ragione sociale:** vengono inoltre normalizzate alcune forme societarie equivalenti presenti nei dati, ad esempio `S.r.l.`, `S.r.l` e `SRL` vengono rappresentate come `SRL`, mentre `S.p.A.`, `S.p.A`, `SpA` e `SPA` vengono rappresentate come `SPA`. La normalizzazione è limitata alle forme gestite esplicitamente, evitando trasformazioni generiche della ragione sociale che potrebbero alterarne il significato.
+* **Paese:** viene normalizzato al codice ISO 3166-1 alpha-2 tramite una `Map` contenente i valori presenti nel dataset. Con più tempo sarebbe preferibile utilizzare una libreria dedicata alla gestione dei Paesi.
+* **Partita IVA:** viene rimossa la spaziatura e il valore viene convertito in maiuscolo. Se manca il prefisso di due lettere, viene aggiunto utilizzando il codice del Paese precedentemente normalizzato. Viene effettuato un controllo strutturale minimo, senza applicare regole specifiche per ogni Paese. La validità effettiva della partita IVA viene demandata alla verifica VIES. Con più tempo sarebbe stata valutata un'API o una libreria che permetta di verificare la struttura della partita IVA in base al Paese.
+* **Tasso USD contrattuale:** se presente deve essere numerico e maggiore di zero. Un valore assente indica che per il cliente non è previsto un tasso USD contrattuale.
+
 ## Parsing CSV
 
 * È stata utilizzata la libreria Apache Commons CSV per il parsing dei file CSV.
