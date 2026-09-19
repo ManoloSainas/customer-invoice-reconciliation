@@ -6,6 +6,7 @@ import com.manolo.model.RisultatoAssociazione;
 import com.manolo.model.RisultatoNormalizzazioneCliente;
 import com.manolo.model.RisultatoNormalizzazioneFattura;
 import com.manolo.model.RisultatoVies;
+import com.manolo.repository.CambioValutaRepository;
 import com.manolo.repository.ClienteRepository;
 import com.manolo.repository.FatturaRepository;
 import com.manolo.repository.ViesRepository;
@@ -13,6 +14,8 @@ import com.manolo.service.AssociazioneService;
 import com.manolo.service.NormalizzazioneService;
 import com.manolo.service.ViesService;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -93,5 +96,18 @@ public class Main {
                             + risultato.getEsito()
             );
         }
+
+        CambioValutaRepository cambioValutaRepository =
+                new CambioValutaRepository();
+
+        BigDecimal tasso =
+                cambioValutaRepository.getTassoCambio(
+                        LocalDate.of(2025, 6, 14),
+                        "GBP"
+                );
+
+        System.out.println();
+        System.out.println("===== TEST FRANKFURTER =====");
+        System.out.println("GBP → EUR: " + tasso);
     }
 }
