@@ -3,6 +3,7 @@ package com.manolo;
 import com.manolo.model.*;
 import com.manolo.repository.ClienteRepository;
 import com.manolo.repository.FatturaRepository;
+import com.manolo.repository.ViesRepository;
 import com.manolo.service.AssociazioneService;
 import com.manolo.service.NormalizzazioneService;
 
@@ -61,5 +62,15 @@ public class Main {
                             + risultato.getProblemi()
             );
         }
+
+        ViesRepository viesRepository = new ViesRepository();
+
+        Map<String, String> risposteVies = viesRepository.getRisposteVies();
+
+        System.out.println("===== VIES MOCK =====");
+
+        risposteVies.forEach((partitaIva, esito) ->
+                System.out.println(partitaIva + " | " + esito)
+        );
     }
 }

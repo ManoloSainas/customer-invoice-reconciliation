@@ -47,8 +47,14 @@
 ## Verifica VIES
 
 * Una risposta `valid` indica che la partita IVA è stata verificata con esito positivo.
-* Una risposta `invalid`, `error` o `non_supportato` non interrompe l'elaborazione dell'intero batch: l'esito viene mantenuto e riportato nella riconciliazione.
-* Una partita IVA assente dal mock VIES non viene considerata automaticamente invalida, ma come non verificata.
+* Una risposta `invalid` indica che la partita IVA è stata verificata ma risulta formalmente errata o inesistente.
+* Una risposta `error` indica un errore temporaneo del servizio VIES simulato. L'errore non interrompe l'elaborazione dell'intero batch e viene riportato nel risultato della riconciliazione.
+* Una risposta `non_supportato` indica che il Paese della partita IVA non è coperto dal servizio VIES.
+* Una partita IVA assente dal mock VIES non viene considerata automaticamente invalida, ma come `non_verificata`, distinguendo l'assenza della risposta da una risposta esplicita `invalid`.
+* Il risultato della verifica VIES viene rappresentato separatamente dal cliente tramite `RisultatoVies`, senza modificare `Cliente`.
+* L'esito VIES viene rappresentato tramite l'enum `EsitoVies`, con i valori `VALID`, `INVALID`, `ERROR`, `NON_SUPPORTATO` e `NON_VERIFICATA`. Non viene utilizzata una lista di problemi perché la verifica produce un singolo esito per partita IVA.
+* Il mock VIES viene letto tramite Jackson (`ObjectMapper`) invece di implementare manualmente il parsing del JSON. La libreria viene utilizzata per estrarre la sezione `risposte` e convertirla direttamente in una `Map<String, String>`.
+* La responsabilità del caricamento del mock è separata dalla logica di verifica: `ViesRepository` si occupa della lettura dei dati, mentre `ViesService` interpreterà gli esiti restituiti dal mock.
 
 ## Associazione fatture-clienti
 

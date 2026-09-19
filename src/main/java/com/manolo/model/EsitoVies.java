@@ -1,0 +1,10 @@
+package com.manolo.model;
+
+public enum EsitoVies {
+
+    VALID,
+    INVALID,
+    ERROR,
+    NON_SUPPORTATO,
+    NON_VERIFICATA
+}
