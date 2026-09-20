@@ -18,16 +18,21 @@ public class CsvReader {
 
         List<String[]> dati = new ArrayList<>();
 
-        try (Reader reader = Files.newBufferedReader(
-                Path.of(percorso),
-                StandardCharsets.UTF_8);
-             CSVParser parser = CSVFormat.DEFAULT.builder()
-                     .setHeader()
-                     .setSkipHeaderRecord(true)
-                     .get()
-                     .parse(reader)) {
+        try (
+                Reader reader = Files.newBufferedReader(
+                        Path.of(percorso),
+                        StandardCharsets.UTF_8
+                );
+
+                CSVParser parser = CSVFormat.DEFAULT.builder()
+                        .setHeader()
+                        .setSkipHeaderRecord(true)
+                        .get()
+                        .parse(reader)
+        ) {
 
             for (CSVRecord record : parser) {
+
                 String[] campi = new String[record.size()];
 
                 for (int i = 0; i < record.size(); i++) {
@@ -38,6 +43,7 @@ public class CsvReader {
             }
 
         } catch (IOException e) {
+
             throw new IllegalStateException(
                     "Impossibile leggere il file: " + percorso,
                     e

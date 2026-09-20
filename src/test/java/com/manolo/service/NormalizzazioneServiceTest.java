@@ -1,8 +1,8 @@
 package com.manolo.service;
 
 import com.manolo.model.Fattura;
-import com.manolo.model.RisultatoNormalizzazioneFattura;
-import com.manolo.model.StatoNormalizzazione;
+import com.manolo.model.result.RisultatoNormalizzazioneFattura;
+import com.manolo.model.enums.StatoNormalizzazione;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;

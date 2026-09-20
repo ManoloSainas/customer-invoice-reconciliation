@@ -1,0 +1,5 @@
+services:
+  reconciliation:
+    build: .
+    volumes:
+      - ./output:/app/output

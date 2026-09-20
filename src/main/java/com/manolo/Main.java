@@ -3,17 +3,22 @@ package com.manolo;
 import com.manolo.model.Cliente;
 import com.manolo.model.Fattura;
 import com.manolo.model.ReportRiconciliazione;
-import com.manolo.model.RisultatoAssociazione;
-import com.manolo.model.RisultatoConversione;
-import com.manolo.model.RisultatoNormalizzazioneCliente;
-import com.manolo.model.RisultatoNormalizzazioneFattura;
-import com.manolo.model.RisultatoRiconciliazione;
-import com.manolo.model.RisultatoVies;
+import com.manolo.model.result.RisultatoAssociazione;
+import com.manolo.model.result.RisultatoConversione;
+import com.manolo.model.result.RisultatoNormalizzazioneCliente;
+import com.manolo.model.result.RisultatoNormalizzazioneFattura;
+import com.manolo.model.result.RisultatoRiconciliazione;
+import com.manolo.model.result.RisultatoVies;
 import com.manolo.repository.CambioValutaRepository;
 import com.manolo.repository.ClienteRepository;
 import com.manolo.repository.FatturaRepository;
 import com.manolo.repository.ViesRepository;
-import com.manolo.service.*;
+import com.manolo.service.AssociazioneService;
+import com.manolo.service.CambioValutaService;
+import com.manolo.service.NormalizzazioneService;
+import com.manolo.service.RiconciliazioneService;
+import com.manolo.service.ReportWriter;
+import com.manolo.service.ViesService;
 
 import java.util.List;
 import java.util.Map;
@@ -43,7 +48,10 @@ public class Main {
         // =========================
 
         NormalizzazioneService normalizzazioneService =
-                new NormalizzazioneService(clienti, fatture);
+                new NormalizzazioneService(
+                        clienti,
+                        fatture
+                );
 
         Map<String, RisultatoNormalizzazioneCliente> clientiNormalizzati =
                 normalizzazioneService.normalizzaClienti();
@@ -75,7 +83,9 @@ public class Main {
                 new ViesService(viesRepository);
 
         List<RisultatoVies> risultatiVies =
-                viesService.verifica(risultatiAssociazione);
+                viesService.verifica(
+                        clientiNormalizzati
+                );
 
         // =========================
         // CONVERSIONE VALUTE
@@ -104,133 +114,18 @@ public class Main {
 
         ReportRiconciliazione report =
                 riconciliazioneService.riconcilia(
+                        clientiNormalizzati,
+                        fattureNormalizzate,
                         risultatiAssociazione,
                         risultatiVies,
                         risultatiConversione
                 );
 
         // =========================
-        // REPORT FINALE
+        // OUTPUT
         // =========================
 
-        System.out.println();
-        System.out.println("===== RICONCILIAZIONE FINALE =====");
-
-        for (RisultatoRiconciliazione risultatoRiconciliazione :
-                report.getRisultati()) {
-
-            System.out.println(
-                    risultatoRiconciliazione.getFattura().getIdFattura()
-                            + " | Cliente: "
-                            + (risultatoRiconciliazione.getCliente() != null
-                            ? risultatoRiconciliazione.getCliente().getIdCliente()
-                            : "NON ASSOCIATO")
-                            + " | VIES: "
-                            + (risultatoRiconciliazione.getRisultatoVies() != null
-                            ? risultatoRiconciliazione.getRisultatoVies().getEsito()
-                            : "N/D")
-                            + " | "
-                            + risultatoRiconciliazione.getValutaOriginale()
-                            + " "
-                            + risultatoRiconciliazione.getImportoOriginale()
-                            + " | EUR: "
-                            + risultatoRiconciliazione.getImportoEuro()
-                            + " | Processabile: "
-                            + risultatoRiconciliazione.isProcessabile()
-                            + " | Problemi: "
-                            + risultatoRiconciliazione.getProblemi()
-            );
-        }
-
-        // =========================
-        // TOTALI
-        // =========================
-
-        System.out.println();
-        System.out.println("===== TOTALI =====");
-
-        System.out.println(
-                "Totale fatture: "
-                        + report.getTotaleFatture()
-        );
-
-        System.out.println(
-                "Fatture processabili: "
-                        + report.getFattureProcessabili()
-        );
-
-        System.out.println(
-                "Fatture non processabili: "
-                        + report.getFattureNonProcessabili()
-        );
-
-        System.out.println(
-                "Totale EUR riconciliato: "
-                        + report.getTotaleEuro()
-        );
-
-        // =========================
-        // ASSOCIAZIONE
-        // =========================
-
-        System.out.println();
-        System.out.println("===== ASSOCIAZIONE =====");
-
-        System.out.println(
-                "Associate tramite ID: "
-                        + report.getAssociazioniId()
-        );
-
-        System.out.println(
-                "Associate tramite nome: "
-                        + report.getAssociazioniNome()
-        );
-
-        System.out.println(
-                "Non associate: "
-                        + report.getNonAssociate()
-        );
-
-        // =========================
-        // ESITI VIES
-        // =========================
-
-        System.out.println();
-        System.out.println("===== ESITI VIES =====");
-
-        System.out.println(
-                "VALID: "
-                        + report.getViesValid()
-        );
-
-        System.out.println(
-                "INVALID: "
-                        + report.getViesInvalid()
-        );
-
-        System.out.println(
-                "ERROR: "
-                        + report.getViesError()
-        );
-
-        System.out.println(
-                "NON_SUPPORTATO: "
-                        + report.getViesNonSupportato()
-        );
-
-        System.out.println(
-                "NON_VERIFICATA: "
-                        + report.getViesNonVerificata()
-        );
-
-        System.out.println(
-                "MANCANTE: "
-                        + report.getViesMancante()
-        );
-
-        // =========================
-        // REPORT JSON
-        // =========================
+        stampaReport(report);
 
         ReportWriter reportWriter =
                 new ReportWriter();
@@ -238,6 +133,102 @@ public class Main {
         reportWriter.scrivi(
                 report,
                 "output/report.json"
+        );
+    }
+
+    private static void stampaReport(
+            ReportRiconciliazione report) {
+
+        System.out.println();
+        System.out.println(
+                "===== RICONCILIAZIONE FINALE ====="
+        );
+
+        for (RisultatoRiconciliazione risultato :
+                report.getRisultati()) {
+
+            System.out.println(
+                    risultato.getFattura().getIdFattura()
+                            + " | Cliente: "
+                            + (risultato.getCliente() != null
+                            ? risultato.getCliente().getIdCliente()
+                            : "NON ASSOCIATO")
+                            + " | VIES: "
+                            + (risultato.getRisultatoVies() != null
+                            ? risultato.getRisultatoVies().getEsito()
+                            : "N/D")
+                            + " | "
+                            + risultato.getValutaOriginale()
+                            + " "
+                            + risultato.getImportoOriginale()
+                            + " | EUR: "
+                            + risultato.getImportoEuro()
+                            + " | Processabile: "
+                            + risultato.isProcessabile()
+                            + " | Problemi: "
+                            + risultato.getProblemi()
+            );
+        }
+
+        System.out.println();
+        System.out.println("===== TOTALI =====");
+        System.out.println(
+                "Totale fatture: "
+                        + report.getTotaleFatture()
+        );
+        System.out.println(
+                "Fatture processabili: "
+                        + report.getFattureProcessabili()
+        );
+        System.out.println(
+                "Fatture non processabili: "
+                        + report.getFattureNonProcessabili()
+        );
+        System.out.println(
+                "Totale EUR riconciliato: "
+                        + report.getTotaleEuro()
+        );
+
+        System.out.println();
+        System.out.println("===== ASSOCIAZIONE =====");
+        System.out.println(
+                "Associate tramite ID: "
+                        + report.getAssociazioniId()
+        );
+        System.out.println(
+                "Associate tramite nome: "
+                        + report.getAssociazioniNome()
+        );
+        System.out.println(
+                "Non associate: "
+                        + report.getNonAssociate()
+        );
+
+        System.out.println();
+        System.out.println("===== ESITI VIES =====");
+        System.out.println(
+                "VALID: "
+                        + report.getViesValid()
+        );
+        System.out.println(
+                "INVALID: "
+                        + report.getViesInvalid()
+        );
+        System.out.println(
+                "ERROR: "
+                        + report.getViesError()
+        );
+        System.out.println(
+                "NON_SUPPORTATO: "
+                        + report.getViesNonSupportato()
+        );
+        System.out.println(
+                "NON_VERIFICATA: "
+                        + report.getViesNonVerificata()
+        );
+        System.out.println(
+                "MANCANTE: "
+                        + report.getViesMancante()
         );
     }
 }

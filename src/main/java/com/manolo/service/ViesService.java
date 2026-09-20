@@ -1,15 +1,14 @@
 package com.manolo.service;
 
 import com.manolo.model.Cliente;
-import com.manolo.model.EsitoVies;
-import com.manolo.model.RisultatoAssociazione;
-import com.manolo.model.RisultatoVies;
+import com.manolo.model.enums.EsitoVies;
+import com.manolo.model.result.RisultatoNormalizzazioneCliente;
+import com.manolo.model.result.RisultatoVies;
 import com.manolo.repository.ViesRepository;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
 public class ViesService {
 
@@ -20,7 +19,7 @@ public class ViesService {
     }
 
     public List<RisultatoVies> verifica(
-            List<RisultatoAssociazione> associazioni) {
+            Map<String, RisultatoNormalizzazioneCliente> clientiNormalizzati) {
 
         Map<String, String> risposte =
                 viesRepository.getRisposteVies();
@@ -33,34 +32,18 @@ public class ViesService {
 
         List<RisultatoVies> risultati = new ArrayList<>();
 
-        List<Cliente> clientiVerificati = new ArrayList<>();
+        // La consegna richiede la verifica della partita IVA di ciascun cliente.
+        for (RisultatoNormalizzazioneCliente risultatoCliente :
+                clientiNormalizzati.values()) {
 
-        for (RisultatoAssociazione associazione : associazioni) {
-
-            if (associazione == null) {
+            if (risultatoCliente == null
+                    || risultatoCliente.getCliente() == null) {
                 continue;
             }
 
-            Cliente cliente = associazione.getCliente();
-
-            if (cliente == null) {
-                continue;
-            }
-
-            boolean giaVerificato = clientiVerificati.stream()
-                    .anyMatch(c -> c != null
-                            && Objects.equals(
-                            c.getIdCliente(),
-                            cliente.getIdCliente()));
-
-            if (giaVerificato) {
-                continue;
-            }
-
-            clientiVerificati.add(cliente);
+            Cliente cliente = risultatoCliente.getCliente();
 
             String partitaIva = cliente.getPartitaIva();
-
             EsitoVies esito;
 
             if (partitaIva == null || partitaIva.isBlank()) {
@@ -70,11 +53,13 @@ public class ViesService {
                 esito = determinaEsito(risposta);
             }
 
-            risultati.add(new RisultatoVies(
-                    cliente,
-                    partitaIva,
-                    esito
-            ));
+            risultati.add(
+                    new RisultatoVies(
+                            cliente,
+                            partitaIva,
+                            esito
+                    )
+            );
         }
 
         return risultati;

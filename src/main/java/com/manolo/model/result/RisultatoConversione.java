@@ -1,16 +1,18 @@
-package com.manolo.model;
+package com.manolo.model.result;
+
+import com.manolo.model.Fattura;
 
 import java.math.BigDecimal;
 
 public class RisultatoConversione {
 
-    private Fattura fattura;
-    private BigDecimal importoOriginale;
-    private String valutaOriginale;
-    private BigDecimal importoEuro;
-    private BigDecimal tassoCambio;
-    private boolean processabile;
-    private String problema;
+    private final Fattura fattura;
+    private final BigDecimal importoOriginale;
+    private final String valutaOriginale;
+    private final BigDecimal importoEuro;
+    private final BigDecimal tassoCambio;
+    private final boolean processabile;
+    private final String problema;
 
     public RisultatoConversione(
             Fattura fattura,
@@ -56,33 +58,5 @@ public class RisultatoConversione {
 
     public String getProblema() {
         return problema;
-    }
-
-    public void setFattura(Fattura fattura) {
-        this.fattura = fattura;
-    }
-
-    public void setImportoOriginale(BigDecimal importoOriginale) {
-        this.importoOriginale = importoOriginale;
-    }
-
-    public void setValutaOriginale(String valutaOriginale) {
-        this.valutaOriginale = valutaOriginale;
-    }
-
-    public void setImportoEuro(BigDecimal importoEuro) {
-        this.importoEuro = importoEuro;
-    }
-
-    public void setTassoCambio(BigDecimal tassoCambio) {
-        this.tassoCambio = tassoCambio;
-    }
-
-    public void setProcessabile(boolean processabile) {
-        this.processabile = processabile;
-    }
-
-    public void setProblema(String problema) {
-        this.problema = problema;
     }
 }

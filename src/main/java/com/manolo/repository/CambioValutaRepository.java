@@ -13,9 +13,12 @@ import java.time.LocalDate;
 
 public class CambioValutaRepository {
 
-    // Permette di fare richieste Http
+    private static final String FRANKFURTER_URL =
+            "https://api.frankfurter.dev/v2/rate/";
+
+    private static final String PROVIDER = "ecb";
+
     private final HttpClient httpClient;
-    // Leggere il JSON restituito dall'API Frankfurter
     private final ObjectMapper objectMapper;
 
     public CambioValutaRepository() {
@@ -27,11 +30,12 @@ public class CambioValutaRepository {
             LocalDate data,
             String valuta) {
 
-        String url = "https://api.frankfurter.dev/v2/rate/"
+        String url = FRANKFURTER_URL
                 + valuta
                 + "/EUR?date="
                 + data
-                + "&providers=ecb";
+                + "&providers="
+                + PROVIDER;
 
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
@@ -65,11 +69,16 @@ public class CambioValutaRepository {
 
             return rate.decimalValue();
 
-        } catch (IOException | InterruptedException e) {
+        } catch (InterruptedException e) {
 
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
+            Thread.currentThread().interrupt();
+
+            throw new RuntimeException(
+                    "Richiesta a Frankfurter interrotta",
+                    e
+            );
+
+        } catch (IOException e) {
 
             throw new RuntimeException(
                     "Errore durante la richiesta a Frankfurter",

@@ -1,6 +1,10 @@
 package com.manolo.service;
 
-import com.manolo.model.*;
+import com.manolo.model.Cliente;
+import com.manolo.model.Fattura;
+import com.manolo.model.enums.StatoNormalizzazione;
+import com.manolo.model.result.RisultatoNormalizzazioneCliente;
+import com.manolo.model.result.RisultatoNormalizzazioneFattura;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -22,13 +26,17 @@ public class NormalizzazioneService {
             Map.entry("fr", "FR"),
             Map.entry("united kingdom", "GB"),
             Map.entry("gb", "GB"),
-            Map.entry("usa", "US")
+            Map.entry("usa", "US"),
+            Map.entry("uk", "GB")
     );
 
     private final Map<String, Cliente> clienti;
     private final List<Fattura> fatture;
 
-    public NormalizzazioneService(Map<String, Cliente> clienti, List<Fattura> fatture) {
+    public NormalizzazioneService(
+            Map<String, Cliente> clienti,
+            List<Fattura> fatture) {
+
         this.clienti = clienti;
         this.fatture = fatture;
     }
@@ -55,15 +63,15 @@ public class NormalizzazioneService {
             }
 
             // Ragione sociale
-            if (cliente.getRagioneSociale() == null || cliente.getRagioneSociale().isBlank()) {
-                problemi.add("Ragione sociale mancante");
-            } else {
-                String valore = cliente.getRagioneSociale()
-                        .trim()
-                        .replaceAll("\\s+", " ");
+            if (cliente.getRagioneSociale() == null
+                    || cliente.getRagioneSociale().isBlank()) {
 
-                valore = valore.replaceAll("(?i)S\\.R\\.L\\.?$", "SRL");
-                valore = valore.replaceAll("(?i)S\\.?P\\.?A\\.?$", "SPA");
+                problemi.add("Ragione sociale mancante");
+
+            } else {
+                String valore = normalizzaNomeCliente(
+                        cliente.getRagioneSociale()
+                );
 
                 if (!valore.equals(cliente.getRagioneSociale())) {
                     normalizzato = true;
@@ -75,36 +83,47 @@ public class NormalizzazioneService {
             if (cliente.getPaese() == null || cliente.getPaese().isBlank()) {
 
                 problemi.add("Paese mancante");
-            } else {
 
-                String valore = cliente.getPaese().trim().toLowerCase();
+            } else {
+                String valore = cliente.getPaese()
+                        .trim()
+                        .toLowerCase();
 
                 String paeseNormalizzato = MAPPATURA_PAESI.get(valore);
 
                 if (paeseNormalizzato == null) {
-
-                    problemi.add("Paese non riconosciuto: " + cliente.getPaese());
-                } else {
-
-                    if (!paeseNormalizzato.equals(cliente.getPaese())) {
-                        normalizzato = true;
-                        cliente.setPaese(paeseNormalizzato);
-                    }
+                    problemi.add(
+                            "Paese non riconosciuto: " + cliente.getPaese()
+                    );
+                } else if (!paeseNormalizzato.equals(cliente.getPaese())) {
+                    normalizzato = true;
+                    cliente.setPaese(paeseNormalizzato);
                 }
             }
 
             // Partita IVA
-            if (cliente.getPartitaIva() == null || cliente.getPartitaIva().isBlank()) {
+            if (cliente.getPartitaIva() == null
+                    || cliente.getPartitaIva().isBlank()) {
+
                 problemi.add("Partita IVA mancante");
+
             } else {
-                String valore = cliente.getPartitaIva().trim().toUpperCase();
+                String valore = cliente.getPartitaIva()
+                        .trim()
+                        .toUpperCase();
 
                 if (!valore.matches("^[A-Z]{2}.*")) {
-                    if (cliente.getPaese() != null && !cliente.getPaese().isBlank()) {
+
+                    if (cliente.getPaese() != null
+                            && cliente.getPaese().matches("^[A-Z]{2}$")) {
+
                         valore = cliente.getPaese() + valore;
                         normalizzato = true;
+
                     } else {
-                        problemi.add("Impossibile determinare il prefisso della partita IVA");
+                        problemi.add(
+                                "Impossibile determinare il prefisso della partita IVA"
+                        );
                     }
                 }
 
@@ -137,7 +156,11 @@ public class NormalizzazioneService {
 
             risultati.put(
                     cliente.getIdCliente(),
-                    new RisultatoNormalizzazioneCliente(cliente, stato, problemi)
+                    new RisultatoNormalizzazioneCliente(
+                            cliente,
+                            stato,
+                            problemi
+                    )
             );
         }
 
@@ -154,8 +177,11 @@ public class NormalizzazioneService {
             boolean normalizzato = false;
 
             // ID fattura
-            if (fattura.getIdFattura() == null || fattura.getIdFattura().isBlank()) {
+            if (fattura.getIdFattura() == null
+                    || fattura.getIdFattura().isBlank()) {
+
                 problemi.add("ID fattura mancante");
+
             } else {
                 String valore = fattura.getIdFattura().trim();
 
@@ -166,8 +192,11 @@ public class NormalizzazioneService {
             }
 
             // ID cliente
-            if (fattura.getClienteId() == null || fattura.getClienteId().isBlank()) {
+            if (fattura.getClienteId() == null
+                    || fattura.getClienteId().isBlank()) {
+
                 problemi.add("ID cliente mancante");
+
             } else {
                 String valore = fattura.getClienteId().trim();
 
@@ -178,15 +207,15 @@ public class NormalizzazioneService {
             }
 
             // Nome cliente
-            if (fattura.getClienteNome() == null || fattura.getClienteNome().isBlank()) {
-                problemi.add("Nome cliente mancante");
-            } else {
-                String valore = fattura.getClienteNome()
-                        .trim()
-                        .replaceAll("\\s+", " ");
+            if (fattura.getClienteNome() == null
+                    || fattura.getClienteNome().isBlank()) {
 
-                valore = valore.replaceAll("(?i)S\\.?R\\.?L\\.?$", "SRL");
-                valore = valore.replaceAll("(?i)S\\.?P\\.?A\\.?$", "SPA");
+                problemi.add("Nome cliente mancante");
+
+            } else {
+                String valore = normalizzaNomeCliente(
+                        fattura.getClienteNome()
+                );
 
                 if (!valore.equals(fattura.getClienteNome())) {
                     normalizzato = true;
@@ -201,7 +230,9 @@ public class NormalizzazioneService {
 
             // Valuta
             if (fattura.getValuta() == null || fattura.getValuta().isBlank()) {
+
                 problemi.add("Valuta mancante");
+
             } else {
                 String valore = fattura.getValuta()
                         .trim()
@@ -219,21 +250,22 @@ public class NormalizzazioneService {
 
             // Importo
             if (fattura.getImporto() == null || fattura.getImporto().isBlank()) {
+
                 problemi.add("Importo mancante");
+
             } else {
                 String valore = fattura.getImporto().trim();
 
                 try {
-                    BigDecimal importo;
-
                     if (valore.contains(",") && valore.contains(".")) {
-                        valore = valore.replace(".", "").replace(",", ".");
+                        valore = valore
+                                .replace(".", "")
+                                .replace(",", ".");
                     } else if (valore.contains(",")) {
                         valore = valore.replace(",", ".");
                     }
 
-                    importo = new BigDecimal(valore);
-
+                    BigDecimal importo = new BigDecimal(valore);
                     String importoNormalizzato = importo.toPlainString();
 
                     if (!importoNormalizzato.equals(fattura.getImporto())) {
@@ -266,5 +298,24 @@ public class NormalizzazioneService {
         }
 
         return risultati;
+    }
+
+    private String normalizzaNomeCliente(String nome) {
+
+        String valore = nome
+                .trim()
+                .replaceAll("\\s+", " ");
+
+        valore = valore.replaceAll(
+                "(?i)S\\.?R\\.?L\\.?$",
+                "SRL"
+        );
+
+        valore = valore.replaceAll(
+                "(?i)S\\.?P\\.?A\\.?$",
+                "SPA"
+        );
+
+        return valore;
     }
 }

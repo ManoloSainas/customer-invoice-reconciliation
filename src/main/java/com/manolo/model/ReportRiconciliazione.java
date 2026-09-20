@@ -1,28 +1,28 @@
 package com.manolo.model;
 
-import com.manolo.model.RisultatoRiconciliazione;
+import com.manolo.model.result.RisultatoRiconciliazione;
 
 import java.math.BigDecimal;
 import java.util.List;
 
 public class ReportRiconciliazione {
 
-    private List<RisultatoRiconciliazione> risultati;
-    private int totaleFatture;
-    private int fattureProcessabili;
-    private int fattureNonProcessabili;
-    private BigDecimal totaleEuro;
+    private final List<RisultatoRiconciliazione> risultati;
+    private final int totaleFatture;
+    private final int fattureProcessabili;
+    private final int fattureNonProcessabili;
+    private final BigDecimal totaleEuro;
 
-    private int associazioniId;
-    private int associazioniNome;
-    private int nonAssociate;
+    private final int associazioniId;
+    private final int associazioniNome;
+    private final int nonAssociate;
 
-    private int viesValid;
-    private int viesInvalid;
-    private int viesError;
-    private int viesNonSupportato;
-    private int viesNonVerificata;
-    private int viesMancante;
+    private final int viesValid;
+    private final int viesInvalid;
+    private final int viesError;
+    private final int viesNonSupportato;
+    private final int viesNonVerificata;
+    private final int viesMancante;
 
     public ReportRiconciliazione(
             List<RisultatoRiconciliazione> risultati,
@@ -60,112 +60,55 @@ public class ReportRiconciliazione {
         return risultati;
     }
 
-    public void setRisultati(List<RisultatoRiconciliazione> risultati) {
-        this.risultati = risultati;
-    }
-
     public int getTotaleFatture() {
         return totaleFatture;
-    }
-
-    public void setTotaleFatture(int totaleFatture) {
-        this.totaleFatture = totaleFatture;
     }
 
     public int getFattureProcessabili() {
         return fattureProcessabili;
     }
 
-    public void setFattureProcessabili(int fattureProcessabili) {
-        this.fattureProcessabili = fattureProcessabili;
-    }
-
     public int getFattureNonProcessabili() {
         return fattureNonProcessabili;
-    }
-
-    public void setFattureNonProcessabili(int fattureNonProcessabili) {
-        this.fattureNonProcessabili = fattureNonProcessabili;
     }
 
     public BigDecimal getTotaleEuro() {
         return totaleEuro;
     }
 
-    public void setTotaleEuro(BigDecimal totaleEuro) {
-        this.totaleEuro = totaleEuro;
-    }
-
     public int getAssociazioniId() {
         return associazioniId;
-    }
-
-    public void setAssociazioniId(int associazioniId) {
-        this.associazioniId = associazioniId;
     }
 
     public int getAssociazioniNome() {
         return associazioniNome;
     }
 
-    public void setAssociazioniNome(int associazioniNome) {
-        this.associazioniNome = associazioniNome;
-    }
-
     public int getNonAssociate() {
         return nonAssociate;
-    }
-
-    public void setNonAssociate(int nonAssociate) {
-        this.nonAssociate = nonAssociate;
     }
 
     public int getViesValid() {
         return viesValid;
     }
 
-    public void setViesValid(int viesValid) {
-        this.viesValid = viesValid;
-    }
-
     public int getViesInvalid() {
         return viesInvalid;
-    }
-
-    public void setViesInvalid(int viesInvalid) {
-        this.viesInvalid = viesInvalid;
     }
 
     public int getViesError() {
         return viesError;
     }
 
-    public void setViesError(int viesError) {
-        this.viesError = viesError;
-    }
-
     public int getViesNonSupportato() {
         return viesNonSupportato;
-    }
-
-    public void setViesNonSupportato(int viesNonSupportato) {
-        this.viesNonSupportato = viesNonSupportato;
     }
 
     public int getViesNonVerificata() {
         return viesNonVerificata;
     }
 
-    public void setViesNonVerificata(int viesNonVerificata) {
-        this.viesNonVerificata = viesNonVerificata;
-    }
-
     public int getViesMancante() {
         return viesMancante;
     }
-
-    public void setViesMancante(int viesMancante) {
-        this.viesMancante = viesMancante;
-    }
 }
-

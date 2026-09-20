@@ -2,11 +2,11 @@ package com.manolo.service;
 
 import com.manolo.model.Cliente;
 import com.manolo.model.Fattura;
-import com.manolo.model.MetodoAssociazione;
-import com.manolo.model.RisultatoAssociazione;
-import com.manolo.model.RisultatoNormalizzazioneCliente;
-import com.manolo.model.RisultatoNormalizzazioneFattura;
-import com.manolo.model.StatoNormalizzazione;
+import com.manolo.model.enums.MetodoAssociazione;
+import com.manolo.model.result.RisultatoAssociazione;
+import com.manolo.model.result.RisultatoNormalizzazioneCliente;
+import com.manolo.model.result.RisultatoNormalizzazioneFattura;
+import com.manolo.model.enums.StatoNormalizzazione;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;

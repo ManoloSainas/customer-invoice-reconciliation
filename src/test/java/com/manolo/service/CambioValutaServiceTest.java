@@ -2,11 +2,11 @@ package com.manolo.service;
 
 import com.manolo.model.Cliente;
 import com.manolo.model.Fattura;
-import com.manolo.model.MetodoAssociazione;
-import com.manolo.model.RisultatoAssociazione;
-import com.manolo.model.RisultatoConversione;
-import com.manolo.model.RisultatoNormalizzazioneFattura;
-import com.manolo.model.StatoNormalizzazione;
+import com.manolo.model.enums.MetodoAssociazione;
+import com.manolo.model.enums.StatoNormalizzazione;
+import com.manolo.model.result.RisultatoAssociazione;
+import com.manolo.model.result.RisultatoConversione;
+import com.manolo.model.result.RisultatoNormalizzazioneFattura;
 import com.manolo.repository.CambioValutaRepository;
 import org.junit.jupiter.api.Test;
 
@@ -14,7 +14,10 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 class CambioValutaServiceTest {
 
@@ -56,12 +59,16 @@ class CambioValutaServiceTest {
 
         CambioValutaRepository repository =
                 new CambioValutaRepository() {
+
                     @Override
                     public BigDecimal getTassoCambio(
                             LocalDate data,
                             String valuta) {
 
-                        fail("Non dovrebbe chiamare Frankfurter per USD contrattuale");
+                        fail(
+                                "Non dovrebbe chiamare Frankfurter per USD contrattuale"
+                        );
+
                         return null;
                     }
                 };
@@ -75,7 +82,9 @@ class CambioValutaServiceTest {
                         List.of(normalizzata)
                 ).get(0);
 
-        assertTrue(risultato.isProcessabile());
+        assertTrue(
+                risultato.isProcessabile()
+        );
 
         assertEquals(
                 new BigDecimal("4600.00"),
@@ -92,6 +101,7 @@ class CambioValutaServiceTest {
     void dovrebbeLasciareEuroInvariato() {
 
         Fattura fattura = new Fattura();
+
         fattura.setIdFattura("F0001");
         fattura.setClienteId("C001");
         fattura.setClienteNome("Rossi Srl");
@@ -130,11 +140,15 @@ class CambioValutaServiceTest {
                         List.of(normalizzata)
                 ).get(0);
 
-        assertTrue(risultato.isProcessabile());
+        assertTrue(
+                risultato.isProcessabile()
+        );
+
         assertEquals(
                 new BigDecimal("1500.00"),
                 risultato.getImportoEuro()
         );
+
         assertEquals(
                 BigDecimal.ONE,
                 risultato.getTassoCambio()
@@ -143,10 +157,14 @@ class CambioValutaServiceTest {
 
     @Test
     void importoNonNumericoRendeLaFatturaNonProcessabile() {
+
         Fattura fattura = new Fattura();
+
         fattura.setIdFattura("F_TEST");
         fattura.setClienteId("C001");
-        fattura.setDataEmissione(LocalDate.of(2025, 1, 1));
+        fattura.setDataEmissione(
+                LocalDate.of(2025, 1, 1)
+        );
         fattura.setValuta("EUR");
         fattura.setImporto("abc");
 
@@ -158,20 +176,27 @@ class CambioValutaServiceTest {
                         fattura,
                         cliente,
                         MetodoAssociazione.ID,
-                        List.of());
+                        List.of()
+                );
 
         RisultatoNormalizzazioneFattura normalizzazione =
                 new RisultatoNormalizzazioneFattura(
                         fattura,
                         StatoNormalizzazione.VALIDO,
-                        List.of());
+                        List.of()
+                );
 
-        CambioValutaRepository repository = new CambioValutaRepository() {
-            @Override
-            public BigDecimal getTassoCambio(LocalDate data, String valuta) {
-                return BigDecimal.ONE;
-            }
-        };
+        CambioValutaRepository repository =
+                new CambioValutaRepository() {
+
+                    @Override
+                    public BigDecimal getTassoCambio(
+                            LocalDate data,
+                            String valuta) {
+
+                        return BigDecimal.ONE;
+                    }
+                };
 
         CambioValutaService service =
                 new CambioValutaService(repository);
@@ -179,21 +204,29 @@ class CambioValutaServiceTest {
         List<RisultatoConversione> risultati =
                 service.converti(
                         List.of(associazione),
-                        List.of(normalizzazione));
+                        List.of(normalizzazione)
+                );
 
-        assertFalse(risultati.get(0).isProcessabile());
+        assertFalse(
+                risultati.get(0).isProcessabile()
+        );
+
         assertEquals(
                 "Formato importo non valido",
-                risultati.get(0).getProblema());
+                risultati.get(0).getProblema()
+        );
     }
-
 
     @Test
     void fatturaSenzaIdNonGeneraEccezione() {
+
         Fattura fattura = new Fattura();
+
         fattura.setIdFattura(null);
         fattura.setClienteId("C001");
-        fattura.setDataEmissione(LocalDate.of(2025, 1, 1));
+        fattura.setDataEmissione(
+                LocalDate.of(2025, 1, 1)
+        );
         fattura.setValuta("EUR");
         fattura.setImporto("100.00");
 
@@ -205,20 +238,27 @@ class CambioValutaServiceTest {
                         fattura,
                         cliente,
                         MetodoAssociazione.ID,
-                        List.of());
+                        List.of()
+                );
 
         RisultatoNormalizzazioneFattura normalizzazione =
                 new RisultatoNormalizzazioneFattura(
                         fattura,
                         StatoNormalizzazione.VALIDO,
-                        List.of());
+                        List.of()
+                );
 
-        CambioValutaRepository repository = new CambioValutaRepository() {
-            @Override
-            public BigDecimal getTassoCambio(LocalDate data, String valuta) {
-                return BigDecimal.ONE;
-            }
-        };
+        CambioValutaRepository repository =
+                new CambioValutaRepository() {
+
+                    @Override
+                    public BigDecimal getTassoCambio(
+                            LocalDate data,
+                            String valuta) {
+
+                        return BigDecimal.ONE;
+                    }
+                };
 
         CambioValutaService service =
                 new CambioValutaService(repository);
@@ -226,21 +266,29 @@ class CambioValutaServiceTest {
         List<RisultatoConversione> risultati =
                 service.converti(
                         List.of(associazione),
-                        List.of(normalizzazione));
+                        List.of(normalizzazione)
+                );
 
-        assertTrue(risultati.get(0).isProcessabile());
+        assertTrue(
+                risultati.get(0).isProcessabile()
+        );
+
         assertEquals(
                 new BigDecimal("100.00"),
-                risultati.get(0).getImportoEuro());
+                risultati.get(0).getImportoEuro()
+        );
     }
-
 
     @Test
     void erroreServizioCambioRendeLaFatturaNonProcessabile() {
+
         Fattura fattura = new Fattura();
+
         fattura.setIdFattura("F_TEST");
         fattura.setClienteId("C001");
-        fattura.setDataEmissione(LocalDate.of(2025, 1, 1));
+        fattura.setDataEmissione(
+                LocalDate.of(2025, 1, 1)
+        );
         fattura.setValuta("GBP");
         fattura.setImporto("100.00");
 
@@ -252,20 +300,29 @@ class CambioValutaServiceTest {
                         fattura,
                         cliente,
                         MetodoAssociazione.ID,
-                        List.of());
+                        List.of()
+                );
 
         RisultatoNormalizzazioneFattura normalizzazione =
                 new RisultatoNormalizzazioneFattura(
                         fattura,
                         StatoNormalizzazione.VALIDO,
-                        List.of());
+                        List.of()
+                );
 
-        CambioValutaRepository repository = new CambioValutaRepository() {
-            @Override
-            public BigDecimal getTassoCambio(LocalDate data, String valuta) {
-                throw new RuntimeException("Errore API");
-            }
-        };
+        CambioValutaRepository repository =
+                new CambioValutaRepository() {
+
+                    @Override
+                    public BigDecimal getTassoCambio(
+                            LocalDate data,
+                            String valuta) {
+
+                        throw new RuntimeException(
+                                "Errore API"
+                        );
+                    }
+                };
 
         CambioValutaService service =
                 new CambioValutaService(repository);
@@ -273,11 +330,83 @@ class CambioValutaServiceTest {
         List<RisultatoConversione> risultati =
                 service.converti(
                         List.of(associazione),
-                        List.of(normalizzazione));
+                        List.of(normalizzazione)
+                );
 
-        assertFalse(risultati.get(0).isProcessabile());
+        assertFalse(
+                risultati.get(0).isProcessabile()
+        );
+
         assertEquals(
                 "Errore API",
-                risultati.get(0).getProblema());
+                risultati.get(0).getProblema()
+        );
+    }
+
+    @Test
+    void fatturaEuroNonAssociataConservaImportoEuroMaRestaNonProcessabile() {
+
+        Fattura fattura = new Fattura();
+
+        fattura.setIdFattura("F0009");
+        fattura.setClienteId("C050");
+        fattura.setClienteNome("Sconosciuti Srl");
+        fattura.setDataEmissione(
+                LocalDate.of(2025, 3, 15)
+        );
+        fattura.setValuta("EUR");
+        fattura.setImporto("400.00");
+
+        RisultatoAssociazione associazione =
+                new RisultatoAssociazione(
+                        fattura,
+                        null,
+                        null,
+                        List.of(
+                                "Cliente non associato"
+                        )
+                );
+
+        RisultatoNormalizzazioneFattura normalizzazione =
+                new RisultatoNormalizzazioneFattura(
+                        fattura,
+                        StatoNormalizzazione.VALIDO,
+                        List.of()
+                );
+
+        CambioValutaService service =
+                new CambioValutaService(
+                        new CambioValutaRepository()
+                );
+
+        RisultatoConversione risultato =
+                service.converti(
+                        List.of(associazione),
+                        List.of(normalizzazione)
+                ).get(0);
+
+        assertFalse(
+                risultato.isProcessabile()
+        );
+
+        assertEquals(
+                new BigDecimal("400.00"),
+                risultato.getImportoOriginale()
+        );
+
+        assertEquals(
+                new BigDecimal("400.00"),
+                risultato.getImportoEuro()
+        );
+
+        assertEquals(
+                BigDecimal.ONE,
+                risultato.getTassoCambio()
+        );
+
+        assertEquals(
+                "Cliente non associato",
+                risultato.getProblema()
+        );
     }
 }

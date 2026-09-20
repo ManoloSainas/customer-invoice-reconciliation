@@ -1,4 +1,4 @@
-package com.manolo.model;
+package com.manolo.model.enums;
 
 public enum EsitoVies {
     VALID,

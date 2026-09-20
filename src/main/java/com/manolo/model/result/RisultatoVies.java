@@ -1,15 +1,19 @@
-package com.manolo.model;
+package com.manolo.model.result;
+
+import com.manolo.model.Cliente;
+import com.manolo.model.enums.EsitoVies;
 
 public class RisultatoVies {
 
-    private Cliente cliente;
-    private String partitaIva;
-    private EsitoVies esito;
+    private final Cliente cliente;
+    private final String partitaIva;
+    private final EsitoVies esito;
 
     public RisultatoVies(
             Cliente cliente,
             String partitaIva,
             EsitoVies esito) {
+
         this.cliente = cliente;
         this.partitaIva = partitaIva;
         this.esito = esito;
@@ -25,17 +29,5 @@ public class RisultatoVies {
 
     public EsitoVies getEsito() {
         return esito;
-    }
-
-    public void setCliente(Cliente cliente) {
-        this.cliente = cliente;
-    }
-
-    public void setPartitaIva(String partitaIva) {
-        this.partitaIva = partitaIva;
-    }
-
-    public void setEsito(EsitoVies esito) {
-        this.esito = esito;
     }
 }

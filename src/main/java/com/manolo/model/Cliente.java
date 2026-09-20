@@ -11,36 +11,12 @@ public class Cliente {
     private BigDecimal tassoUsdContrattuale;
     private String note;
 
-    public String getNote() {
-        return note;
+    public String getIdCliente() {
+        return idCliente;
     }
 
-    public void setNote(String note) {
-        this.note = note;
-    }
-
-    public BigDecimal getTassoUsdContrattuale() {
-        return tassoUsdContrattuale;
-    }
-
-    public void setTassoUsdContrattuale(BigDecimal tassoUsdContrattuale) {
-        this.tassoUsdContrattuale = tassoUsdContrattuale;
-    }
-
-    public String getPartitaIva() {
-        return partitaIva;
-    }
-
-    public void setPartitaIva(String partitaIva) {
-        this.partitaIva = partitaIva;
-    }
-
-    public String getPaese() {
-        return paese;
-    }
-
-    public void setPaese(String paese) {
-        this.paese = paese;
+    public void setIdCliente(String idCliente) {
+        this.idCliente = idCliente;
     }
 
     public String getRagioneSociale() {
@@ -51,11 +27,35 @@ public class Cliente {
         this.ragioneSociale = ragioneSociale;
     }
 
-    public String getIdCliente() {
-        return idCliente;
+    public String getPaese() {
+        return paese;
     }
 
-    public void setIdCliente(String idCliente) {
-        this.idCliente = idCliente;
+    public void setPaese(String paese) {
+        this.paese = paese;
+    }
+
+    public String getPartitaIva() {
+        return partitaIva;
+    }
+
+    public void setPartitaIva(String partitaIva) {
+        this.partitaIva = partitaIva;
+    }
+
+    public BigDecimal getTassoUsdContrattuale() {
+        return tassoUsdContrattuale;
+    }
+
+    public void setTassoUsdContrattuale(BigDecimal tassoUsdContrattuale) {
+        this.tassoUsdContrattuale = tassoUsdContrattuale;
+    }
+
+    public String getNote() {
+        return note;
+    }
+
+    public void setNote(String note) {
+        this.note = note;
     }
 }

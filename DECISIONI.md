@@ -1,160 +1,587 @@
 # Decisioni di progetto
 
-## Setup iniziale
+Il criterio generale seguito è stato:
 
-* Repository Git creato su GitHub.
-* Progetto Maven creato con Java 25.
-* File di input originali inseriti nella directory `data/`.
+> correggere automaticamente solo ciò che può essere interpretato senza ambiguità, mantenere visibili le anomalie e non bloccare l'intero batch per un problema relativo a un singolo record.
 
-## Modello di elaborazione
+## 1. Flusso di elaborazione
 
-* La classe `Fattura` rappresenta il dato della fattura in ingresso e non viene modificata per contenere errori o informazioni relative al processo di riconciliazione.
-* Le informazioni prodotte durante la normalizzazione vengono rappresentate separatamente rispetto ai dati originali.
-* Vengono utilizzati risultati distinti per la normalizzazione di clienti e fatture.
-* Lo stato della normalizzazione è rappresentato da un enum comune a clienti e fatture con i valori `VALIDO`, `NORMALIZZATO` ed `ERRORE`.
-* I risultati della normalizzazione contengono una lista di problemi, in modo da poter registrare più anomalie contemporaneamente senza perderne informazioni.
-* Le informazioni prodotte durante l'elaborazione successiva vengono rappresentate separatamente, tramite appositi oggetti risultato.
-* Questa separazione mantiene distinto il dato originale dalla sua elaborazione.
-* L'architettura separa le responsabilità principali in `NormalizzazioneService`, `AssociazioneService`, `ViesService`, `CambioValutaService` e `RiconciliazioneService`, evitando di concentrare tutta la logica in un'unica classe.
-* `RiconciliazioneService` orchestra la composizione dei risultati delle fasi precedenti e costruisce il report finale senza assumere la responsabilità del caricamento dei dati o del calcolo dei tassi di cambio.
-* Il `Main` si limita a coordinare le diverse fasi dell'elaborazione e alla stampa del risultato finale, mantenendo la logica di dominio nei relativi service.
+Ho suddiviso il processo nelle seguenti fasi:
 
-## Parsing CSV
+`caricamento → normalizzazione → associazione → VIES → conversione → riconciliazione → report`
 
-* È stata utilizzata la libreria Apache Commons CSV per il parsing dei file CSV.
-* Inizialmente era stato implementato un parsing minimale tramite `String.split(",")`, ma questo approccio non gestiva correttamente i campi CSV racchiusi tra virgolette contenenti virgole, come gli importi nel formato `1.234,56`.
-* È stata quindi preferita una libreria standardizzata per gestire correttamente il formato CSV senza implementare manualmente un parser più complesso.
-* La scelta consente di mantenere il codice più semplice e leggibile, evitando di dedicare una parte significativa del progetto alla gestione dei dettagli del formato CSV, che non rappresentano il focus del tool di riconciliazione.
+Ho preferito mantenere separate queste responsabilità per rendere esplicito dove viene presa ogni decisione e per evitare che parsing, regole di dominio e produzione dell'output fossero concentrati nella stessa classe.
 
-## Gestione e normalizzazione dei dati
+Non ho introdotto framework applicativi, database o altre infrastrutture non necessarie per un tool batch di queste dimensioni.
 
-* I dati in ingresso vengono analizzati campo per campo in base al loro significato e alle regole del dominio.
-* Viene distinta una situazione normalizzabile, quando il dato può essere reso interpretabile senza ambiguità, da una situazione non valida o mancante, che non può essere corretta in modo affidabile.
-* Non vengono corretti automaticamente i dati quando non è possibile determinare il valore corretto in modo univoco e affidabile.
-* I campi opzionali vuoti vengono mantenuti come valori assenti e non considerati automaticamente errori.
-* Un valore presente ma non interpretabile secondo il formato atteso viene invece considerato non valido.
-* La normalizzazione viene effettuata prima delle fasi di associazione, verifica VIES e conversione delle valute.
-* La normalizzazione viene effettuata separatamente per clienti e fatture.
-* I dati provenienti dai file vengono mantenuti il più possibile nel loro formato originale durante il caricamento. La conversione di valori che richiedono interpretazione, come gli importi monetari, viene demandata alla fase di normalizzazione.
+## 2. Parsing e conservazione dei dati originali
 
-### Normalizzazione dei clienti
+### CSV
 
-* **ID cliente:** viene considerato un identificativo obbligatorio. Se mancante viene registrato il problema `ID cliente mancante`. Se presente vengono rimossi eventuali spazi iniziali e finali. Non viene effettuata in questa fase alcuna verifica dell'esistenza o unicità dell'identificativo.
-* **Ragione sociale:** vengono rimossi gli spazi iniziali e finali e le sequenze di più spazi vengono ridotte a un singolo spazio, per rendere più affidabile il confronto dei nomi.
-* **Ragione sociale:** vengono inoltre normalizzate alcune forme societarie equivalenti presenti nei dati, ad esempio `S.r.l.`, `S.r.l` e `SRL` vengono rappresentate come `SRL`, mentre `S.p.A.`, `S.p.A`, `SpA` e `SPA` vengono rappresentate come `SPA`. La normalizzazione è limitata alle forme gestite esplicitamente, evitando trasformazioni generiche della ragione sociale che potrebbero alterarne il significato.
-* **Paese:** viene normalizzato al codice ISO 3166-1 alpha-2 tramite una `Map` contenente i valori presenti nel dataset. Con più tempo sarebbe preferibile utilizzare una libreria dedicata alla gestione dei Paesi.
-* **Partita IVA:** viene rimossa la spaziatura e il valore viene convertito in maiuscolo. Se manca il prefisso di due lettere, viene aggiunto utilizzando il codice del Paese precedentemente normalizzato. Viene effettuato un controllo strutturale minimo, senza applicare regole specifiche per ogni Paese. La validità effettiva della partita IVA viene demandata alla verifica VIES. Con più tempo sarebbe stata valutata un'API o una libreria che permetta di verificare la struttura della partita IVA in base al Paese.
-* **Tasso USD contrattuale:** se presente deve essere numerico e maggiore di zero. Un valore assente indica che per il cliente non è previsto un tasso USD contrattuale.
+Inizialmente avevo considerato un parsing minimale tramite `String.split(",")`.
 
-### Normalizzazione delle fatture
+Il dataset contiene però valori che possono includere virgole all'interno di campi CSV, ad esempio importi nel formato `1.234,56`.
 
-* **ID fattura:** viene considerato un identificativo obbligatorio. Se mancante viene registrato il problema `ID fattura mancante`. Se presente vengono rimossi eventuali spazi iniziali e finali. Non viene effettuata in questa fase alcuna verifica dell'unicità dell'identificativo.
-* **ID cliente:** viene considerato un identificativo obbligatorio per l'associazione della fattura al cliente. Se mancante viene registrato il problema `ID cliente mancante`. Se presente vengono rimossi eventuali spazi iniziali e finali. La verifica dell'esistenza dell'ID nel registro clienti viene demandata alla successiva fase di associazione.
-* **Nome cliente:** viene normalizzato con le stesse regole utilizzate per la ragione sociale dei clienti, in modo che i dati provenienti dalle due sorgenti siano confrontabili. Vengono rimossi gli spazi iniziali e finali, ridotti gli spazi multipli e normalizzate le forme societarie gestite esplicitamente, come `S.r.l.` → `SRL` e `S.p.A.` → `SPA`.
-* **Associazione cliente:** la normalizzazione della fattura non verifica l'esistenza dell'`idCliente` e non associa la fattura al cliente. L'associazione viene effettuata in una fase successiva.
-* **Data di emissione:** viene rappresentata tramite `LocalDate`. La validità della data viene quindi demandata al parsing della data durante il caricamento; una data assente viene invece registrata come problema.
-* **Valuta:** viene rimossa la spaziatura iniziale e finale e il codice viene convertito in maiuscolo. Viene verificato che abbia il formato di una sigla composta da tre lettere. La verifica della disponibilità del relativo tasso di cambio viene demandata alla fase successiva di conversione valutaria.
-* **Importo:** viene mantenuto come `String` durante il caricamento per preservare il formato originale e viene convertito durante la normalizzazione in un formato numerico coerente. Sono supportati valori come `1234.56`, `1234,56` e `1.234,56`. Un importo mancante o non interpretabile viene considerato un errore.
-* **Importi negativi:** vengono considerati valori validi dal punto di vista della normalizzazione, purché siano numericamente interpretabili. Non bloccano quindi l'elaborazione, poiché possono rappresentare casi legittimi come storni o note di credito.
+Ho quindi utilizzato Apache Commons CSV per evitare di implementare manualmente un parser non affidabile.
 
-## Associazione fatture-clienti
+Il parser non effettua correzioni sui valori: la loro interpretazione viene demandata alla normalizzazione.
 
-* L'associazione viene effettuata prioritariamente tramite `cliente_id`, considerato l'identificativo univoco del cliente.
-* Se `cliente_id` è presente ma non corrisponde ad alcun cliente nel registro, viene tentata una seconda associazione tramite `cliente_nome` normalizzato.
-* Se `cliente_id` è mancante, viene utilizzato direttamente `cliente_nome` come criterio alternativo.
-* La corrispondenza tramite nome viene accettata automaticamente solo quando identifica un unico cliente.
-* Se `cliente_id` è mancante o inesistente e l'associazione tramite nome riesce, la fattura viene associata ma il problema relativo all'ID viene comunque mantenuto nel risultato.
-* In caso di nessuna corrispondenza tramite nome, la fattura non viene associata e viene registrato il relativo problema.
-* In caso di più clienti con lo stesso nome, la fattura non viene associata automaticamente per evitare una scelta arbitraria.
-* L'associazione utilizza i risultati della normalizzazione dei clienti e delle fatture, così da confrontare dati già resi coerenti.
-* Un cliente con `StatoNormalizzazione.ERRORE` può comunque essere utilizzato per l'associazione se la sua identità è determinabile in modo affidabile tramite ID o tramite un nome univoco. I problemi di qualità del cliente vengono mantenuti e potranno essere riportati nelle fasi successive.
-* L'associazione viene rappresentata tramite `RisultatoAssociazione` invece di modificare `Fattura`, mantenendo separati i dati di input dai risultati dell'elaborazione.
-* Il metodo utilizzato per l'associazione viene rappresentato tramite l'enum `MetodoAssociazione`, con valori distinti per associazione tramite ID e tramite nome.
+### Importi
 
-## Verifica VIES
+L'importo della fattura viene inizialmente mantenuto come `String`.
 
-* Una risposta `valid` indica che la partita IVA è stata verificata con esito positivo.
-* Una risposta `invalid` indica che la partita IVA è stata verificata ma risulta formalmente errata o inesistente.
-* Una risposta `error` indica un errore temporaneo del servizio VIES simulato. L'errore non interrompe l'elaborazione dell'intero batch e viene riportato nel risultato della riconciliazione.
-* Una risposta `non_supportato` indica che il Paese della partita IVA non è coperto dal servizio VIES.
-* Una partita IVA assente dal mock VIES non viene considerata automaticamente invalida, ma come `NON_VERIFICATA`, distinguendo l'assenza della risposta da una risposta esplicita `invalid`.
-* Una partita IVA mancante nel dato cliente viene rappresentata come `MANCANTE`, distinguendola sia da una partita IVA esplicitamente `INVALID` sia da una partita IVA presente ma non verificabile tramite il mock.
-* Il risultato della verifica VIES viene rappresentato separatamente dal cliente tramite `RisultatoVies`, senza modificare `Cliente`.
-* L'esito VIES viene rappresentato tramite l'enum `EsitoVies`, con i valori `VALID`, `INVALID`, `ERROR`, `NON_SUPPORTATO`, `NON_VERIFICATA` e `MANCANTE`. Non viene utilizzata una lista di problemi perché la verifica produce un singolo esito per partita IVA.
-* Il mock VIES viene letto tramite Jackson (`ObjectMapper`) invece di implementare manualmente il parsing del JSON. La libreria viene utilizzata per estrarre la sezione `risposte` e convertirla direttamente in una `Map<String, String>`.
-* La responsabilità del caricamento del mock è separata dalla logica di verifica: `ViesRepository` si occupa della lettura dei dati, mentre `ViesService` interpreta gli esiti restituiti dal mock.
-* La verifica VIES viene effettuata sui clienti effettivamente associati ad almeno una fattura. I clienti presenti nel registro ma non coinvolti in alcuna fattura non vengono verificati, poiché la verifica non produrrebbe informazioni necessarie alla riconciliazione corrente.
-* La verifica VIES viene effettuata una sola volta per ciascun cliente associato, anche quando lo stesso cliente compare in più fatture. Il risultato VIES è quindi riferito al cliente e non alla singola fattura, evitando verifiche e risultati duplicati.
-* Se una fattura non può essere associata a un cliente, il `ViesService` non produce un esito VIES per quella fattura e lascia la gestione del problema alla fase di riconciliazione finale.
-* Il `ViesService` si occupa esclusivamente di interpretare le risposte del mock VIES e produrre i relativi `RisultatoVies`, senza gestire i problemi di associazione delle fatture.
-* Gli esiti VIES diversi da `VALID` vengono riportati come anomalie nel risultato della riconciliazione. Un'anomalia VIES non rende automaticamente la fattura non processabile, se i dati necessari alla riconciliazione economica sono comunque disponibili.
+La scelta permette di non perdere il formato originale prima di stabilire se il valore sia interpretabile.
 
-## Conversione delle valute
+La conversione a `BigDecimal` viene effettuata successivamente, durante la normalizzazione o il calcolo.
 
-* Gli importi in EUR non richiedono una conversione e vengono mantenuti come importi originali.
-* Per i clienti con un tasso USD contrattuale valido, le fatture in USD vengono convertite utilizzando esclusivamente il tasso contrattuale indicato nel registro clienti, indipendentemente dalla data della fattura.
-* Per le altre valute, il tasso storico viene richiesto a Frankfurter utilizzando la data di emissione della fattura e il provider ECB.
-* Gli importi convertiti in EUR vengono arrotondati a due cifre decimali utilizzando `RoundingMode.HALF_UP`, in modo da rappresentare il risultato monetario in centesimi di euro.
-* Un errore rilevato durante la normalizzazione non rende automaticamente la fattura non processabile per tutte le fasi successive. Ogni fase verifica autonomamente la presenza dei dati necessari alla propria elaborazione.
-* Ad esempio, la mancanza dell'ID cliente non impedisce la conversione se la fattura viene successivamente associata tramite nome e sono disponibili importo, valuta e data. Al contrario, la mancanza dell'importo o della valuta impedisce la conversione.
-* Se la fattura non può essere associata a un cliente, non viene effettuata la conversione poiché manca un'associazione affidabile necessaria alla riconciliazione.
-* Se Frankfurter non restituisce un tasso utilizzabile, la fattura viene mantenuta nel report ma viene considerata non processabile e non viene incluso alcun importo EUR nei totali.
-* Gli errori del servizio Frankfurter, come una valuta non supportata, non interrompono l'elaborazione delle altre fatture.
-* Il tasso di cambio utilizzato viene conservato nel risultato della conversione insieme all'importo originale e all'importo convertito, così da rendere il risultato verificabile.
+Per gli importi monetari ho scelto `BigDecimal` invece di `double` per evitare problemi di precisione.
 
-## Gestione degli errori di elaborazione
+## 3. Normalizzazione
 
-* L'elaborazione viene eseguita a livello di singola fattura: un errore su una fattura non deve interrompere l'elaborazione delle altre.
-* Quando un dato può essere normalizzato in modo univoco e affidabile, viene normalizzato e l'elaborazione prosegue.
-* Quando un dato è mancante o non può essere interpretato in modo affidabile, la fattura viene considerata non processabile e viene esclusa dai calcoli, mantenendo comunque traccia dell'errore nel risultato finale.
-* Gli errori temporanei relativi a servizi esterni non interrompono l'elaborazione dell'intero batch.
-* Una fattura non processabile viene comunque inclusa nel risultato finale con l'indicazione del problema, evitando che i dati problematici vengano semplicemente ignorati.
-* La proprietà `processabile` rappresenta la possibilità di completare la riconciliazione economica della singola fattura. Le anomalie informative, come un esito VIES diverso da `VALID`, vengono invece mantenute nella lista dei problemi senza bloccare automaticamente il calcolo dell'importo EUR.
+Ho distinto tre stati:
 
-## Riconciliazione finale
+* `VALIDO`: il dato è già utilizzabile;
+* `NORMALIZZATO`: il dato è stato corretto senza ambiguità;
+* `ERRORE`: il dato manca oppure non può essere interpretato in modo affidabile.
 
-* La riconciliazione finale combina i risultati delle fasi precedenti senza ricalcolare le operazioni già effettuate.
-* Per ogni fattura viene creato un `RisultatoRiconciliazione` che contiene la fattura, il cliente associato, il metodo di associazione, l'esito VIES, l'importo originale, la valuta originale, l'importo in EUR, il tasso di cambio, lo stato di processabilità e l'elenco dei problemi.
-* Il risultato della riconciliazione viene mantenuto separato da `Fattura`, così da non modificare il dato di input con informazioni prodotte durante l'elaborazione.
-* I problemi provenienti dalle diverse fasi vengono aggregati nel risultato finale, permettendo di conservare sia le anomalie non bloccanti sia gli errori che impediscono la riconciliazione.
-* Una fattura non associata a un cliente non viene considerata processabile e non contribuisce al totale EUR.
-* Una fattura con conversione non disponibile non viene considerata processabile e non contribuisce al totale EUR.
-* Una fattura con un'anomalia VIES può rimanere processabile se l'importo EUR è stato determinato correttamente.
-* Gli importi negativi non vengono esclusi automaticamente dal totale, poiché sono considerati valori numericamente validi e possono rappresentare storni o note di credito.
+Uno stato `ERRORE` non rende automaticamente inutilizzabile il record in tutte le fasi successive. Ogni fase verifica quali dati siano effettivamente necessari.
 
-## Report complessivo
+I problemi rilevati durante la normalizzazione vengono mantenuti nei relativi risultati e successivamente propagati nella riconciliazione finale, così che il report possa mostrare anche anomalie che non impediscono l'elaborazione economica.
 
-* Il report complessivo viene rappresentato tramite `ReportRiconciliazione`, separato dai risultati delle singole fatture.
-* `ReportRiconciliazione` contiene l'elenco dei risultati per fattura, il numero totale delle fatture, il numero di fatture processabili, il numero di fatture non processabili e il totale EUR riconciliato.
-* Il totale EUR viene calcolato sommando esclusivamente gli importi EUR delle fatture `processabile=true`.
-* Le fatture non processabili rimangono comunque presenti nel report con i relativi problemi, ma non contribuiscono al totale.
-* Il report contiene inoltre un riepilogo delle modalità di associazione, distinguendo le fatture associate tramite ID, tramite nome e non associate.
-* Il report contiene inoltre un riepilogo degli esiti VIES prodotti sui clienti effettivamente associati.
-* La stampa finale viene effettuata dopo il completamento delle fasi di elaborazione, mantenendo il `Main` principalmente come orchestratore del flusso.
-* È stato aggiunto un generatore dedicato al report JSON (`ReportWriter`) per produrre un formato esterno più compatto rispetto alla serializzazione diretta del modello interno.
-* Il modello utilizzato per il JSON (`RisultatoReportJson`) espone solamente i dati necessari al report, evitando di serializzare nuovamente gli oggetti interni `Fattura`, `Cliente` e `RisultatoVies`.
-* Il formato JSON contiene il riepilogo generale, il riepilogo delle associazioni, il riepilogo degli esiti VIES e i risultati delle singole fatture.
-* Il report JSON viene scritto nel percorso `output/report.json`. La directory viene creata automaticamente se non esiste.
-* Ad ogni esecuzione il file viene sovrascritto, evitando duplicazioni o residui derivanti da esecuzioni precedenti.
-* Gli errori durante la scrittura del report JSON vengono gestiti dal `ReportWriter` senza modificare la logica di riconciliazione.
-* Le date del modello vengono serializzate nel formato ISO, utilizzando il modulo Jackson `JavaTimeModule` e disabilitando la serializzazione delle date come timestamp.
-* Il report JSON è considerato un formato di output separato dal modello interno: eventuali modifiche alla struttura del JSON possono quindi essere effettuate senza modificare la logica della riconciliazione.
+### Ragioni sociali
 
-## Test
+Nei due file lo stesso cliente può essere scritto in modi leggermente differenti.
 
-* Sono stati realizzati test automatici sulle principali regole e casistiche considerate più rilevanti per il funzionamento del tool.
-* I test sono stati generati con il supporto dell'AI, richiedendo esplicitamente la verifica delle casistiche più importanti e rappresentative delle principali decisioni di dominio.
-* La suite attuale copre le principali aree di rischio individuate: normalizzazione degli importi, gestione degli importi mancanti, non numerici e negativi, associazione tramite ID e tramite nome, distinzione degli esiti VIES, utilizzo del tasso USD contrattuale, gestione degli importi in EUR, gestione di un ID fattura mancante, errori del servizio di cambio e comportamento della riconciliazione in presenza di anomalie VIES.
-* Sono stati inclusi anche test di robustezza per verificare che dati non interpretabili o errori dei servizi esterni non provochino eccezioni non gestite durante l'elaborazione della singola fattura.
-* Sono stati aggiunti test specifici per `ReportWriter`, verificando la creazione del report JSON e la presenza dei principali dati riepilogativi.
-* È stato aggiunto un test che verifica la sovrascrittura del report JSON esistente, così da verificare il comportamento in caso di esecuzioni ripetute.
-* I test non hanno l'obiettivo di coprire ogni possibile combinazione di input, ma di verificare le regole fondamentali sulle quali si basa il comportamento del tool.
-* La suite finale comprende 15 test, tutti superati, senza failure, errori o test saltati.
-* È stata inoltre eseguita un'elaborazione completa sui dati forniti, composta da 28 fatture. L'elaborazione ha prodotto 24 fatture processabili e 4 non processabili, senza interrompere il batch in presenza di errori relativi a singole fatture.
-* Nell'elaborazione completa è stato verificato anche il fallback dell'associazione tramite nome: una fattura con `cliente_id` mancante può essere associata a un cliente univoco tramite nome e rimanere processabile, mantenendo comunque l'anomalia relativa all'ID nel risultato.
-* Durante l'esecuzione reale è stato verificato anche il comportamento in presenza di un errore del servizio Frankfurter: la fattura interessata viene mantenuta nel report come non processabile, senza impedire l'elaborazione delle fatture successive.
-* È stata verificata inoltre la riesecuzione del programma sullo stesso percorso di output, confermando che il file `output/report.json` viene sovrascritto senza generare duplicazioni.
-* È stata eseguita anche un'analisi statica tramite SonarQube Cloud. L'analisi ha rilevato 0 bug, 0 vulnerabilità, 0 code smell e 0 security hotspot.
-* L'analisi ha rilevato una duplicazione complessiva del 4,2%, concentrata principalmente nelle classi modello `RisultatoConversione`, `RisultatoRiconciliazione` e `RisultatoReportJson`, dove sono presenti strutture ripetitive come costruttori e getter/setter. La duplicazione è stata mantenuta perché non giustifica, per le dimensioni e gli obiettivi del progetto, un'astrazione aggiuntiva che aumenterebbe la complessità del codice.
-* Il Quality Gate di SonarQube Cloud risulta `not computed` nell'analisi effettuata; questo valore viene mantenuto come informazione dell'analisi e non viene interpretato come un errore del codice.
-* Con più tempo a disposizione sarebbe stata ampliata la suite per coprire ulteriori casi limite e combinazioni di anomalie, in particolare scenari aggiuntivi di normalizzazione, associazione ambigua, errori dei servizi esterni, conversioni valutarie e composizione del report finale.
+Normalizzo quindi:
+
+* spazi iniziali e finali;
+* sequenze di spazi multipli;
+* alcune forme societarie note, ad esempio `S.r.l.` → `SRL` e `S.p.A.` → `SPA`.
+
+La stessa funzione viene utilizzata sia per l'anagrafica sia per i nomi presenti sulle fatture.
+
+Non applico trasformazioni più aggressive perché potrebbero rendere uguali società realmente differenti.
+
+### Paesi
+
+I valori presenti nel dataset possono essere espressi come nome del Paese o come codice.
+
+Ho utilizzato una mappatura esplicita verso codici ISO a due lettere per i valori necessari al dataset.
+
+Non ho implementato un sistema generale per tutti i Paesi del mondo: con più tempo utilizzerei una libreria o una tabella ISO completa.
+
+La mappatura corrente rimane quindi intenzionalmente limitata e valori non previsti vengono segnalati anziché interpretati arbitrariamente.
+
+### Partite IVA
+
+Rimuovo spazi e normalizzo il valore in maiuscolo.
+
+Se manca il prefisso internazionale, lo aggiungo solamente quando il Paese è stato determinato in modo affidabile.
+
+Caso concreto: `C008` contiene `12345678903` e Paese Italia. Il valore può quindi essere normalizzato senza ambiguità in `IT12345678903`.
+
+Non implemento invece le regole formali specifiche delle partite IVA di ogni Stato.
+
+Ad esempio `FR123` supera un controllo strutturale minimale, ma viene successivamente indicata dal mock VIES come `INVALID`.
+
+Ho preferito lasciare al servizio dedicato la responsabilità della validazione effettiva.
+
+### Cliente con Paese mancante
+
+`C012` non contiene il Paese, ma possiede già una partita IVA con prefisso `ES`.
+
+Non deduco automaticamente il Paese dalla partita IVA, perché il campo Paese rimane comunque un dato mancante dell'anagrafica.
+
+La partita IVA è però ancora utilizzabile per la verifica VIES e le fatture del cliente possono essere elaborate se dispongono degli altri dati necessari.
+
+L'anomalia relativa al Paese rimane comunque presente nel report finale.
+
+### Tasso USD contrattuale
+
+Un tasso contrattuale presente deve essere maggiore di zero.
+
+L'assenza del valore significa invece che il cliente non dispone di un cambio USD concordato.
+
+Non ho introdotto soglie arbitrarie per decidere se un tasso positivo sia "realistico", perché la consegna non fornisce una regola affidabile per farlo.
+
+## 4. Associazione fatture-clienti
+
+Questa è stata una delle principali ambiguità del progetto.
+
+Ho scelto la seguente precedenza:
+
+1. `cliente_id`;
+2. nome normalizzato come fallback;
+3. nessuna associazione automatica se il nome non identifica un solo cliente.
+
+### ID valido
+
+Quando `cliente_id` identifica un cliente esistente, considero l'ID la fonte più affidabile.
+
+Il nome non viene utilizzato per sostituire questa associazione.
+
+Ad esempio `F0010` può avere un nome normalizzato che coincide con più record Rossi, ma contiene un ID valido: viene quindi associata tramite ID.
+
+Con più tempo aggiungerei eventualmente un warning quando ID e nome indicano informazioni incoerenti, mantenendo comunque l'ID come riferimento principale.
+
+### ID mancante
+
+`F0007` non contiene `cliente_id`, ma il nome identifica in modo univoco `C002`.
+
+La fattura viene quindi associata tramite nome, mantenendo però l'anomalia relativa all'ID mancante.
+
+### ID inesistente
+
+`F0008` contiene `C999`, che non esiste nell'anagrafica.
+
+Il nome identifica comunque in modo univoco `C002`.
+
+Anche in questo caso effettuo il fallback tramite nome ma mantengo nel risultato il problema relativo all'ID errato.
+
+### Cliente sconosciuto
+
+`F0009` contiene un ID inesistente e un nome che non identifica nessun cliente.
+
+Non provo a utilizzare importo, data o altri indizi per inventare un'associazione.
+
+La fattura rimane quindi non associata e `processabile=false`.
+
+L'importo e la valuta sono però dati indipendenti dall'associazione cliente. Poiché la fattura è già espressa in EUR, l'importo EUR può essere determinato senza ambiguità:
+
+`400 EUR → 400 EUR`, con tasso `1`.
+
+Il valore viene quindi riportato nel report, ma non contribuisce al totale riconciliato perché la fattura non è stata associata in modo affidabile a un cliente.
+
+### Clienti apparentemente duplicati
+
+`C001` e `C004` hanno dati molto simili e, dopo la normalizzazione, possono avere la stessa ragione sociale.
+
+Non li unifico automaticamente perché possiedono identificativi distinti e non esiste una regola affidabile che autorizzi la deduplicazione.
+
+Di conseguenza, se un nome identifica più clienti, il fallback tramite nome non viene accettato.
+
+Ho preferito un'associazione mancata a un falso positivo.
+
+## 5. Fatture apparentemente duplicate
+
+`F0001` e `F0027` hanno dati sostanzialmente identici ma ID fattura differenti.
+
+Non le considero automaticamente duplicate.
+
+Due documenti possono avere stesso cliente, stessa data e stesso importo senza essere necessariamente lo stesso documento.
+
+Senza una regola esplicita o un identificativo comune affidabile, entrambe rimangono nel report.
+
+## 6. Importi anomali
+
+### Formati diversi
+
+Sono accettati e normalizzati formati come:
+
+* `1234.56`
+* `1234,56`
+* `1.234,56`
+
+`F0023`, ad esempio, contiene `1234,56` e viene convertita in un valore numerico utilizzabile.
+
+### Importo negativo
+
+`F0017` contiene `-500 EUR`.
+
+Non considero automaticamente errato un importo negativo perché può rappresentare una nota di credito, uno storno o una rettifica.
+
+In assenza di una regola contraria nella consegna, viene quindi considerato processabile e contribuisce al totale con valore negativo.
+
+### Importo mancante
+
+`F0024` non contiene l'importo.
+
+Non esiste una trasformazione affidabile possibile, quindi la fattura rimane nel report ma viene marcata come non processabile.
+
+### Valuta mancante
+
+`F0025` contiene l'importo ma non la valuta.
+
+Non assumo automaticamente EUR o un'altra valuta.
+
+L'importo originale viene comunque conservato nel report, mentre l'importo EUR rimane non disponibile.
+
+La fattura non entra nei totali riconciliati.
+
+## 7. Verifica VIES
+
+Il file `vies_mock.json` viene trattato come il servizio VIES richiesto dalla consegna.
+
+Ho distinto esplicitamente:
+
+* `VALID`
+* `INVALID`
+* `ERROR`
+* `NON_SUPPORTATO`
+* `NON_VERIFICATA`
+* `MANCANTE`
+
+Questa distinzione evita di considerare automaticamente invalida qualsiasi partita IVA che non produca una risposta positiva.
+
+In particolare:
+
+* `INVALID` significa risposta esplicitamente negativa;
+* `ERROR` rappresenta un errore del servizio;
+* `NON_SUPPORTATO` significa che il servizio non può verificare il caso;
+* `NON_VERIFICATA` indica una partita IVA presente ma assente dalle risposte del mock;
+* `MANCANTE` indica una partita IVA non disponibile nell'anagrafica.
+
+### Verifica di tutti i clienti
+
+La consegna richiede di validare la partita IVA di ciascun cliente.
+
+La verifica VIES viene quindi effettuata su tutti i clienti presenti nell'anagrafica normalizzata, indipendentemente dal fatto che abbiano o meno fatture associate.
+
+Ogni cliente viene verificato una sola volta, perché la partita IVA appartiene al cliente e non alla singola fattura.
+
+Questo comprende anche clienti come `C004`, che non risultano associati ad alcuna fattura ma fanno comunque parte dell'anagrafica fornita.
+
+Il riepilogo VIES finale è quindi riferito ai clienti dell'anagrafica e non al numero di fatture.
+
+### Esito VIES e processabilità della fattura
+
+Ho scelto di non far dipendere automaticamente la processabilità economica dall'esito VIES.
+
+Un esito negativo o non disponibile rappresenta un'anomalia amministrativa o fiscale da evidenziare nel report, ma non impedisce necessariamente di determinare in modo affidabile il cliente, l'importo e il relativo valore in EUR.
+
+Ad esempio una fattura può quindi essere economicamente processabile anche se il VIES restituisce:
+
+* `INVALID`;
+* `ERROR`;
+* `NON_SUPPORTATO`;
+* `MANCANTE`.
+
+L'anomalia rimane comunque chiaramente visibile nel risultato finale.
+
+### IVA mancante ma fattura processabile
+
+`C007` non possiede partita IVA e quindi produce `MANCANTE`.
+
+Le sue fatture possono comunque essere riconciliate economicamente.
+
+Ho quindi separato volutamente:
+
+* anomalia amministrativa/fiscale;
+* possibilità di calcolare correttamente l'importo della fattura.
+
+## 8. Conversione delle valute
+
+### EUR
+
+Gli importi già in EUR non richiedono una conversione valutaria.
+
+L'importo EUR coincide con quello originale e il tasso viene rappresentato come `1`.
+
+Questa informazione può essere determinata anche quando una fattura non è associabile a un cliente. In quel caso l'importo EUR viene comunque riportato, ma la fattura rimane non processabile ai fini della riconciliazione.
+
+### USD con tasso contrattuale
+
+La consegna specifica che il cambio concordato deve essere utilizzato per tutte le fatture USD del cliente indipendentemente dalla data.
+
+Il tasso contrattuale ha quindi precedenza sul cambio storico.
+
+Esempi presenti nei dati:
+
+* `C007`: tasso `0.92`;
+* `C014`: tasso `0.95`.
+
+Il contratto riguarda soltanto USD: una fattura EUR dello stesso cliente non utilizza tale tasso.
+
+### Altre valute
+
+Negli altri casi utilizzo Frankfurter richiedendo il cambio verso EUR relativo alla data di emissione e il provider ECB.
+
+Conservo anche il tasso utilizzato nel risultato per rendere verificabile la conversione.
+
+Gli importi EUR vengono arrotondati a due decimali utilizzando `RoundingMode.HALF_UP`.
+
+### Valuta formalmente valida ma non disponibile
+
+`F0016` contiene `AED`.
+
+Il codice valuta è formalmente composto da tre lettere, quindi non viene scartato durante la normalizzazione.
+
+La disponibilità effettiva del cambio viene verificata nella fase dedicata.
+
+Durante l'esecuzione Frankfurter restituisce un errore HTTP per questo caso.
+
+La singola fattura viene quindi considerata non processabile, ma l'errore non interrompe il resto del batch.
+
+Non utilizzo un tasso inventato o relativo a un'altra valuta.
+
+### Giorni senza fixing BCE
+
+Nel dataset è presente anche una fattura in una data festiva (`F0026`, 25 dicembre).
+
+La versione corrente utilizza il valore restituito da Frankfurter per la data richiesta e non implementa una politica propria per weekend o festività.
+
+Con più tempo verificherei esplicitamente il comportamento desiderato quando la BCE non pubblica un fixing nel giorno della fattura, decidendo insieme al dominio se utilizzare l'ultimo giorno disponibile o considerare il caso non processabile.
+
+## 9. Significato di "processabile"
+
+Ho interpretato `processabile` come:
+
+> possibilità di completare in modo affidabile la riconciliazione economica della fattura nel suo complesso.
+
+Non significa quindi che il record sia privo di qualunque anomalia.
+
+Una fattura può essere processabile pur avendo, ad esempio:
+
+* ID cliente originariamente mancante ma associazione tramite nome univoco;
+* partita IVA `INVALID`;
+* errore VIES;
+* Paese non supportato da VIES;
+* partita IVA mancante;
+* altre anomalie di normalizzazione che non impediscono il calcolo economico.
+
+Una fattura non è invece processabile quando manca un elemento indispensabile alla riconciliazione, ad esempio:
+
+* cliente non associabile;
+* importo mancante;
+* valuta mancante;
+* cambio necessario non disponibile.
+
+`processabile=false` non implica che nessuna informazione possa essere calcolata.
+
+Ad esempio `F0009` non è riconciliabile perché manca un cliente affidabile, ma essendo già espressa in EUR è comunque possibile riportare correttamente il suo importo EUR.
+
+Questa separazione permette di conservare tutte le informazioni affidabili disponibili senza considerare riconciliato un record che presenta problemi bloccanti.
+
+## 10. Gestione degli errori
+
+Il principio adottato è:
+
+> un errore relativo a una fattura non deve impedire l'elaborazione delle altre.
+
+I problemi rilevati durante:
+
+* normalizzazione della fattura;
+* normalizzazione del cliente;
+* associazione;
+* verifica VIES;
+* conversione valutaria;
+
+vengono aggregati nel risultato finale.
+
+Per evitare che lo stesso problema venga mostrato più volte, i messaggi vengono raccolti mantenendo l'ordine ma eliminando eventuali duplicati.
+
+I record non processabili rimangono nel report invece di essere scartati silenziosamente, così che l'amministrazione possa individuare quelli che richiedono intervento manuale.
+
+Quando possibile, vengono mantenute anche le informazioni determinabili con certezza, anche quando il record nel suo complesso non è processabile.
+
+## 11. Report finale
+
+Ho scelto JSON come formato principale perché è:
+
+* strutturato;
+* leggibile;
+* facilmente elaborabile da altri sistemi;
+* adatto a contenere contemporaneamente risultati e anomalie.
+
+Il JSON non serializza direttamente l'intero modello interno.
+
+`RisultatoReportJson` contiene solamente i dati utili per il report amministrativo, evitando di legare il formato esterno alla struttura completa delle classi applicative.
+
+Per ogni fattura vengono riportati, quando disponibili:
+
+* ID fattura;
+* cliente associato;
+* partita IVA;
+* metodo di associazione;
+* esito VIES;
+* importo e valuta originali;
+* importo EUR;
+* tasso utilizzato;
+* stato di processabilità;
+* problemi rilevati.
+
+Il report conserva le informazioni determinabili anche nei record non processabili.
+
+Ad esempio `F0009` riporta `400 EUR` come importo originale e `400 EUR` come importo EUR, con tasso `1`, ma rimane `processabile=false` perché non è stato possibile determinare un cliente affidabile.
+
+Il report contiene inoltre riepiloghi relativi a:
+
+* fatture processabili e non processabili;
+* totale EUR;
+* modalità di associazione;
+* esiti VIES.
+
+Il totale EUR viene calcolato esclusivamente sulle fatture considerate processabili.
+
+Di conseguenza, i `400 EUR` di `F0009` non vengono inclusi nel totale riconciliato.
+
+## 12. Riesecuzione del job
+
+La consegna richiede che il job possa essere rieseguito senza duplicare o corrompere il risultato precedente.
+
+Ho interpretato questo requisito come idempotenza dell'output.
+
+Il file:
+
+`output/report.json`
+
+viene completamente sovrascritto a ogni esecuzione.
+
+Non viene effettuato append dei nuovi risultati al file precedente. Di conseguenza, eseguendo più volte il job sugli stessi dati, il report continua a contenere lo stesso insieme di risultati anziché accumulare quelli delle esecuzioni precedenti.
+
+La riesecuzione del job e la deduplicazione dei dati di input sono però due aspetti distinti: eventuali record apparentemente duplicati già presenti nei CSV vengono mantenuti quando non esiste una regola affidabile che permetta di considerarli lo stesso record.
+
+Ad esempio, `F0001` e `F0027` rimangono entrambe nel report perché hanno identificativi differenti, anche se altri dati risultano uguali.
+
+
+## 13. Esecuzione riproducibile con Docker
+
+Per evitare che l'esecuzione dipenda dalla versione di Java o Maven installata sulla macchina del valutatore, ho aggiunto una configurazione Docker.
+
+L'immagine viene costruita in due fasi:
+
+1. Maven compila il progetto ed esegue la suite di test;
+2. l'immagine finale contiene solamente il runtime Java, le classi compilate, le dipendenze e i dati necessari all'esecuzione.
+
+In questo modo sulla macchina che esegue il progetto non è necessario installare Java, Maven o un IDE.
+
+Sono sufficienti Docker con Docker Compose e una connessione Internet, necessaria per recuperare i tassi di cambio tramite Frankfurter.
+
+Docker non fa parte della logica applicativa: viene utilizzato esclusivamente per rendere il processo di build ed esecuzione riproducibile.
+
+## 14. Cosa ho volutamente lasciato fuori
+
+Ho evitato di trasformare il progetto in un sistema più complesso del necessario.
+
+### Validazione IVA specifica per Paese
+
+Non ho implementato manualmente algoritmi fiscali nazionali.
+
+Con più tempo utilizzerei una libreria o una fonte affidabile per effettuare una validazione strutturale specifica prima della verifica VIES.
+
+### Gestione completa dei Paesi
+
+La mappatura attuale è limitata ai valori affrontati nel progetto.
+
+In un'applicazione reale utilizzerei una sorgente ISO completa e gestirei esplicitamente tutte le varianti ammesse.
+
+### Associazione approssimativa dei nomi
+
+Non ho implementato un'associazione automatica basata sulla semplice somiglianza tra nomi.
+
+Un nome simile potrebbe infatti appartenere a un cliente diverso. Ho quindi preferito associare una fattura tramite nome solo quando, dopo la normalizzazione, esiste una sola corrispondenza certa nell'anagrafica.
+
+### Deduplicazione
+
+Non ho implementato deduplicazione automatica di clienti o fatture sulla base di campi simili.
+
+Preferisco conservare due record distinti piuttosto che eliminarne uno senza una regola di dominio affidabile.
+
+### Parsing di alcuni valori completamente malformati
+
+Gli importi vengono mantenuti come stringa fino alla normalizzazione, ma la stessa strategia non è stata applicata a tutti i campi.
+
+In particolare:
+
+* una data presente ma completamente non interpretabile;
+* un tasso USD contrattuale presente ma non numerico;
+
+possono ancora fallire durante il caricamento.
+
+Con più tempo manterrei anche questi valori in forma raw e sposterei completamente la loro interpretazione nella fase di normalizzazione, così da trasformare ogni errore in un problema della singola riga invece di rischiare di interrompere il caricamento.
+
+### Identificativi duplicati nell'anagrafica
+
+L'anagrafica clienti viene indicizzata tramite ID.
+
+La soluzione corrente assume quindi che `id_cliente` sia unico.
+
+Con più tempo aggiungerei un controllo esplicito per intercettare eventuali ID duplicati anziché affidarmi implicitamente all'unicità del dato.
+
+### Struttura delle righe CSV
+
+Il parser gestisce correttamente il formato CSV, ma il caricamento presume che le righe contengano le colonne previste dalla consegna.
+
+In una versione più robusta aggiungerei controlli espliciti anche su righe incomplete o con struttura inattesa, così da trasformarle in anomalie del singolo record.
+
+### Collegamento tra le fasi
+
+La pipeline viene eseguita interamente in memoria e le varie fasi lavorano sulle stesse istanze di `Cliente` e `Fattura`.
+
+Per questo motivo alcuni risultati vengono collegati tramite identità dell'oggetto.
+
+Questa soluzione è semplice e adeguata all'architettura attuale, ma non sarebbe adatta se in futuro gli oggetti venissero serializzati, ricreati o caricati da un database.
+
+In quel caso utilizzerei identificativi tecnici stabili per collegare i risultati delle varie fasi.
+
+### Note libere
+
+Le informazioni presenti nel campo `note` non vengono utilizzate dalla logica del programma.
+
+Ho scelto di non interpretare automaticamente testo libero per influenzare associazioni, validazioni o altre regole di elaborazione.
+
+Con più tempo valuterei se trasformare le informazioni rilevanti presenti nelle note in campi strutturati e gestibili in modo affidabile.
+
+## 15. Miglioramenti che farei con più tempo
+
+Oltre ai miglioramenti già indicati nelle sezioni precedenti, con più tempo:
+
+amplierei la copertura dei test, includendo un numero maggiore di casi limite e combinazioni di anomalie;
+renderei ancora più robusta la gestione dei controlli e degli errori, soprattutto nelle fasi di caricamento e interpretazione dei dati.
+
+## 16. Esecuzione riproducibile con Docker
+
+Ho scelto di configurare il progetto per l'esecuzione tramite Docker, così da evitare dipendenze dalla versione di Java o Maven installata sulla macchina del valutatore.
+
+La build Docker compila il progetto ed esegue automaticamente i test, mentre l'immagine finale contiene tutto ciò che serve per avviare il tool.
+
+In questo modo, per eseguire il progetto sono sufficienti Docker con Docker Compose e una connessione Internet, necessaria per recuperare i tassi di cambio tramite Frankfurter.
+
+Ho verificato l'esecuzione completa del progetto tramite Docker utilizzando i dati forniti, compresa la generazione del file `output/report.json`.
+
+## 17. Verifiche finali
+
+La suite automatica comprende:
+
+* **17 test**
+* **0 failure**
+* **0 errori**
+* **0 test saltati**
+
+Sono presenti test specifici anche per:
+
+* la validazione VIES di un cliente senza fatture associate;
+* il mantenimento dell'importo EUR di una fattura già espressa in EUR ma non associabile a un cliente.
+
+Sull'intero dataset fornito il risultato finale è:
+
+* **28 fatture totali**
+* **24 processabili**
+* **4 non processabili**
+* **25 associazioni tramite ID**
+* **2 associazioni tramite nome**
+* **1 fattura non associata**
+* **totale riconciliato: 37.475,60 EUR**
+
+Il riepilogo VIES sui 14 clienti dell'anagrafica è:
+
+* `VALID`: **8**
+* `INVALID`: **2**
+* `ERROR`: **2**
+* `NON_SUPPORTATO`: **1**
+* `NON_VERIFICATA`: **0**
+* `MANCANTE`: **1**
+
+### Analisi statica
+
+È stata inoltre eseguita un'analisi statica del progetto tramite SonarQube Cloud.
+
+L'analisi ha rilevato:
+
+* **0 bug**
+* **0 vulnerabilità**
+* **0 code smell**
+* **0 security hotspot**
+* **4,2% di duplicazione complessiva**
+
+La duplicazione rilevata è concentrata principalmente in classi risultato e DTO con strutture simili, come costruttori e metodi di accesso.

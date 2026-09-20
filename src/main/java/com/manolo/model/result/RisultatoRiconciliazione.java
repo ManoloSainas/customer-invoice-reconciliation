@@ -1,20 +1,24 @@
-package com.manolo.model;
+package com.manolo.model.result;
+
+import com.manolo.model.Cliente;
+import com.manolo.model.Fattura;
+import com.manolo.model.enums.MetodoAssociazione;
 
 import java.math.BigDecimal;
 import java.util.List;
 
 public class RisultatoRiconciliazione {
 
-    private Fattura fattura;
-    private Cliente cliente;
-    private MetodoAssociazione metodoAssociazione;
-    private RisultatoVies risultatoVies;
-    private BigDecimal importoOriginale;
-    private String valutaOriginale;
-    private BigDecimal importoEuro;
-    private BigDecimal tassoCambio;
-    private boolean processabile;
-    private List<String> problemi;
+    private final Fattura fattura;
+    private final Cliente cliente;
+    private final MetodoAssociazione metodoAssociazione;
+    private final RisultatoVies risultatoVies;
+    private final BigDecimal importoOriginale;
+    private final String valutaOriginale;
+    private final BigDecimal importoEuro;
+    private final BigDecimal tassoCambio;
+    private final boolean processabile;
+    private final List<String> problemi;
 
     public RisultatoRiconciliazione(
             Fattura fattura,
@@ -78,45 +82,5 @@ public class RisultatoRiconciliazione {
 
     public List<String> getProblemi() {
         return problemi;
-    }
-
-    public void setFattura(Fattura fattura) {
-        this.fattura = fattura;
-    }
-
-    public void setCliente(Cliente cliente) {
-        this.cliente = cliente;
-    }
-
-    public void setMetodoAssociazione(MetodoAssociazione metodoAssociazione) {
-        this.metodoAssociazione = metodoAssociazione;
-    }
-
-    public void setRisultatoVies(RisultatoVies risultatoVies) {
-        this.risultatoVies = risultatoVies;
-    }
-
-    public void setImportoOriginale(BigDecimal importoOriginale) {
-        this.importoOriginale = importoOriginale;
-    }
-
-    public void setValutaOriginale(String valutaOriginale) {
-        this.valutaOriginale = valutaOriginale;
-    }
-
-    public void setImportoEuro(BigDecimal importoEuro) {
-        this.importoEuro = importoEuro;
-    }
-
-    public void setTassoCambio(BigDecimal tassoCambio) {
-        this.tassoCambio = tassoCambio;
-    }
-
-    public void setProcessabile(boolean processabile) {
-        this.processabile = processabile;
-    }
-
-    public void setProblemi(List<String> problemi) {
-        this.problemi = problemi;
     }
 }

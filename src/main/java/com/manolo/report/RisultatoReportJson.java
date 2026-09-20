@@ -1,22 +1,25 @@
-package com.manolo.model;
+package com.manolo.report;
+
+import com.manolo.model.enums.EsitoVies;
+import com.manolo.model.enums.MetodoAssociazione;
 
 import java.math.BigDecimal;
 import java.util.List;
 
 public class RisultatoReportJson {
 
-    private String idFattura;
-    private String clienteId;
-    private String cliente;
-    private String partitaIva;
-    private MetodoAssociazione metodoAssociazione;
-    private EsitoVies esitoVies;
-    private BigDecimal importoOriginale;
-    private String valutaOriginale;
-    private BigDecimal importoEuro;
-    private BigDecimal tassoCambio;
-    private boolean processabile;
-    private List<String> problemi;
+    private final String idFattura;
+    private final String clienteId;
+    private final String cliente;
+    private final String partitaIva;
+    private final MetodoAssociazione metodoAssociazione;
+    private final EsitoVies esitoVies;
+    private final BigDecimal importoOriginale;
+    private final String valutaOriginale;
+    private final BigDecimal importoEuro;
+    private final BigDecimal tassoCambio;
+    private final boolean processabile;
+    private final List<String> problemi;
 
     public RisultatoReportJson(
             String idFattura,

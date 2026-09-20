@@ -4,8 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.manolo.model.ReportRiconciliazione;
-import com.manolo.model.RisultatoReportJson;
-import com.manolo.model.RisultatoRiconciliazione;
+import com.manolo.report.RisultatoReportJson;
+import com.manolo.model.result.RisultatoRiconciliazione;
 
 import java.io.IOException;
 import java.nio.file.Files;

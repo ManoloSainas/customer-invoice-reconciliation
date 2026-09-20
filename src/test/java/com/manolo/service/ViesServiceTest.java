@@ -1,19 +1,18 @@
 package com.manolo.service;
 
 import com.manolo.model.Cliente;
-import com.manolo.model.EsitoVies;
-import com.manolo.model.Fattura;
-import com.manolo.model.MetodoAssociazione;
-import com.manolo.model.RisultatoAssociazione;
-import com.manolo.model.RisultatoVies;
+import com.manolo.model.enums.EsitoVies;
+import com.manolo.model.enums.StatoNormalizzazione;
+import com.manolo.model.result.RisultatoNormalizzazioneCliente;
+import com.manolo.model.result.RisultatoVies;
 import com.manolo.repository.ViesRepository;
 import org.junit.jupiter.api.Test;
 
-import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class ViesServiceTest {
 
@@ -26,19 +25,31 @@ class ViesServiceTest {
                 "IT01234567890"
         );
 
-        RisultatoAssociazione associazione =
-                creaAssociazione(cliente, "F0001");
+        ViesRepository repository =
+                new FakeViesRepository(
+                        Map.of(
+                                "IT01234567890",
+                                "valid"
+                        )
+                );
 
-        ViesRepository repository = new FakeViesRepository(
-                Map.of("IT01234567890", "valid")
-        );
-
-        ViesService service = new ViesService(repository);
+        ViesService service =
+                new ViesService(repository);
 
         RisultatoVies risultato =
-                service.verifica(List.of(associazione)).get(0);
+                service.verifica(
+                        Map.of(
+                                "C001",
+                                creaRisultatoNormalizzazione(
+                                        cliente
+                                )
+                        )
+                ).get(0);
 
-        assertEquals(EsitoVies.VALID, risultato.getEsito());
+        assertEquals(
+                EsitoVies.VALID,
+                risultato.getEsito()
+        );
     }
 
     @Test
@@ -56,22 +67,98 @@ class ViesServiceTest {
                 "GB123456789"
         );
 
-        ViesRepository repository = new FakeViesRepository(
-                Map.of("IT99999999999", "invalid")
-        );
+        ViesRepository repository =
+                new FakeViesRepository(
+                        Map.of(
+                                "IT99999999999",
+                                "invalid"
+                        )
+                );
 
-        ViesService service = new ViesService(repository);
-
-        List<RisultatoAssociazione> associazioni = List.of(
-                creaAssociazione(cliente, "F0019"),
-                creaAssociazione(clienteSenzaRisposta, "F0020")
-        );
+        ViesService service =
+                new ViesService(repository);
 
         List<RisultatoVies> risultati =
-                service.verifica(associazioni);
+                service.verifica(
+                        Map.of(
+                                "C009",
+                                creaRisultatoNormalizzazione(
+                                        cliente
+                                ),
+                                "C010",
+                                creaRisultatoNormalizzazione(
+                                        clienteSenzaRisposta
+                                )
+                        )
+                );
 
-        assertEquals(EsitoVies.INVALID, risultati.get(0).getEsito());
-        assertEquals(EsitoVies.NON_VERIFICATA, risultati.get(1).getEsito());
+        Map<String, EsitoVies> esiti =
+                risultati.stream()
+                        .collect(
+                                Collectors.toMap(
+                                        r -> r.getCliente()
+                                                .getIdCliente(),
+                                        RisultatoVies::getEsito
+                                )
+                        );
+
+        assertEquals(
+                EsitoVies.INVALID,
+                esiti.get("C009")
+        );
+
+        assertEquals(
+                EsitoVies.NON_VERIFICATA,
+                esiti.get("C010")
+        );
+    }
+
+    @Test
+    void dovrebbeVerificareAncheClienteSenzaFattureAssociate() {
+
+        Cliente cliente = creaCliente(
+                "C004",
+                "Rossi SRL",
+                "IT01234567890"
+        );
+
+        ViesRepository repository =
+                new FakeViesRepository(
+                        Map.of(
+                                "IT01234567890",
+                                "valid"
+                        )
+                );
+
+        ViesService service =
+                new ViesService(repository);
+
+        List<RisultatoVies> risultati =
+                service.verifica(
+                        Map.of(
+                                "C004",
+                                creaRisultatoNormalizzazione(
+                                        cliente
+                                )
+                        )
+                );
+
+        assertEquals(
+                1,
+                risultati.size()
+        );
+
+        assertEquals(
+                "C004",
+                risultati.get(0)
+                        .getCliente()
+                        .getIdCliente()
+        );
+
+        assertEquals(
+                EsitoVies.VALID,
+                risultati.get(0).getEsito()
+        );
     }
 
     private Cliente creaCliente(
@@ -80,6 +167,7 @@ class ViesServiceTest {
             String partitaIva) {
 
         Cliente cliente = new Cliente();
+
         cliente.setIdCliente(id);
         cliente.setRagioneSociale(nome);
         cliente.setPaese("IT");
@@ -88,22 +176,13 @@ class ViesServiceTest {
         return cliente;
     }
 
-    private RisultatoAssociazione creaAssociazione(
-            Cliente cliente,
-            String idFattura) {
+    private RisultatoNormalizzazioneCliente
+    creaRisultatoNormalizzazione(
+            Cliente cliente) {
 
-        Fattura fattura = new Fattura();
-        fattura.setIdFattura(idFattura);
-        fattura.setClienteId(cliente.getIdCliente());
-        fattura.setClienteNome(cliente.getRagioneSociale());
-        fattura.setDataEmissione(LocalDate.of(2025, 1, 1));
-        fattura.setValuta("EUR");
-        fattura.setImporto("100.00");
-
-        return new RisultatoAssociazione(
-                fattura,
+        return new RisultatoNormalizzazioneCliente(
                 cliente,
-                MetodoAssociazione.ID,
+                StatoNormalizzazione.VALIDO,
                 List.of()
         );
     }
@@ -113,7 +192,9 @@ class ViesServiceTest {
 
         private final Map<String, String> risposte;
 
-        FakeViesRepository(Map<String, String> risposte) {
+        FakeViesRepository(
+                Map<String, String> risposte) {
+
             this.risposte = risposte;
         }
 

@@ -9,7 +9,7 @@
     "nonAssociate" : 1
   },
   "vies" : {
-    "valid" : 7,
+    "valid" : 8,
     "invalid" : 2,
     "error" : 2,
     "nonSupportato" : 1,
@@ -127,10 +127,10 @@
     "partitaIva" : null,
     "metodoAssociazione" : null,
     "esitoVies" : null,
-    "importoOriginale" : null,
+    "importoOriginale" : 400.00,
     "valutaOriginale" : "EUR",
-    "importoEuro" : null,
-    "tassoCambio" : null,
+    "importoEuro" : 400.00,
+    "tassoCambio" : 1,
     "processabile" : false,
     "problemi" : [ "Cliente non trovato per ID: C050", "Cliente non trovato per nome: Sconosciuti SRL", "Cliente non associato" ]
   }, {
@@ -301,7 +301,7 @@
     "importoEuro" : 1803.19,
     "tassoCambio" : 0.85866,
     "processabile" : true,
-    "problemi" : [ "Errore durante la verifica VIES" ]
+    "problemi" : [ "Paese mancante", "Errore durante la verifica VIES" ]
   }, {
     "idFattura" : "F0023",
     "clienteId" : "C001",
@@ -327,7 +327,7 @@
     "importoEuro" : null,
     "tassoCambio" : null,
     "processabile" : false,
-    "problemi" : [ "Errore durante la verifica VIES", "Importo mancante" ]
+    "problemi" : [ "Importo mancante", "Errore durante la verifica VIES" ]
   }, {
     "idFattura" : "F0025",
     "clienteId" : "C003",
@@ -335,12 +335,12 @@
     "partitaIva" : "DE811234567",
     "metodoAssociazione" : "ID",
     "esitoVies" : "ERROR",
-    "importoOriginale" : null,
+    "importoOriginale" : 1400.00,
     "valutaOriginale" : null,
     "importoEuro" : null,
     "tassoCambio" : null,
     "processabile" : false,
-    "problemi" : [ "Errore durante la verifica VIES", "Valuta mancante" ]
+    "problemi" : [ "Valuta mancante", "Errore durante la verifica VIES" ]
   }, {
     "idFattura" : "F0026",
     "clienteId" : "C005",

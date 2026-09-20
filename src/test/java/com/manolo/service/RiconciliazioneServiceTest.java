@@ -1,20 +1,25 @@
 package com.manolo.service;
 
 import com.manolo.model.Cliente;
-import com.manolo.model.EsitoVies;
 import com.manolo.model.Fattura;
-import com.manolo.model.MetodoAssociazione;
 import com.manolo.model.ReportRiconciliazione;
-import com.manolo.model.RisultatoAssociazione;
-import com.manolo.model.RisultatoConversione;
-import com.manolo.model.RisultatoVies;
+import com.manolo.model.enums.EsitoVies;
+import com.manolo.model.enums.MetodoAssociazione;
+import com.manolo.model.enums.StatoNormalizzazione;
+import com.manolo.model.result.RisultatoAssociazione;
+import com.manolo.model.result.RisultatoConversione;
+import com.manolo.model.result.RisultatoNormalizzazioneCliente;
+import com.manolo.model.result.RisultatoNormalizzazioneFattura;
+import com.manolo.model.result.RisultatoVies;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RiconciliazioneServiceTest {
 
@@ -35,6 +40,20 @@ class RiconciliazioneServiceTest {
         );
         fattura.setValuta("EUR");
         fattura.setImporto("700.00");
+
+        RisultatoNormalizzazioneCliente clienteNormalizzato =
+                new RisultatoNormalizzazioneCliente(
+                        cliente,
+                        StatoNormalizzazione.VALIDO,
+                        List.of()
+                );
+
+        RisultatoNormalizzazioneFattura fatturaNormalizzata =
+                new RisultatoNormalizzazioneFattura(
+                        fattura,
+                        StatoNormalizzazione.VALIDO,
+                        List.of()
+                );
 
         RisultatoAssociazione associazione =
                 new RisultatoAssociazione(
@@ -67,14 +86,38 @@ class RiconciliazioneServiceTest {
 
         ReportRiconciliazione report =
                 service.riconcilia(
-                        List.of(associazione),
-                        List.of(vies),
-                        List.of(conversione)
+                        Map.of(
+                                "C009",
+                                clienteNormalizzato
+                        ),
+                        List.of(
+                                fatturaNormalizzata
+                        ),
+                        List.of(
+                                associazione
+                        ),
+                        List.of(
+                                vies
+                        ),
+                        List.of(
+                                conversione
+                        )
                 );
 
-        assertEquals(1, report.getTotaleFatture());
-        assertEquals(1, report.getFattureProcessabili());
-        assertEquals(0, report.getFattureNonProcessabili());
+        assertEquals(
+                1,
+                report.getTotaleFatture()
+        );
+
+        assertEquals(
+                1,
+                report.getFattureProcessabili()
+        );
+
+        assertEquals(
+                0,
+                report.getFattureNonProcessabili()
+        );
 
         assertEquals(
                 new BigDecimal("700.00"),
