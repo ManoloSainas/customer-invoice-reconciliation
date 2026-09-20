@@ -6,6 +6,26 @@
 * Progetto Maven creato con Java 25.
 * File di input originali inseriti nella directory `data/`.
 
+## Modello di elaborazione
+
+* La classe `Fattura` rappresenta il dato della fattura in ingresso e non viene modificata per contenere errori o informazioni relative al processo di riconciliazione.
+* Le informazioni prodotte durante la normalizzazione vengono rappresentate separatamente rispetto ai dati originali.
+* Vengono utilizzati risultati distinti per la normalizzazione di clienti e fatture.
+* Lo stato della normalizzazione è rappresentato da un enum comune a clienti e fatture con i valori `VALIDO`, `NORMALIZZATO` ed `ERRORE`.
+* I risultati della normalizzazione contengono una lista di problemi, in modo da poter registrare più anomalie contemporaneamente senza perderne informazioni.
+* Le informazioni prodotte durante l'elaborazione successiva vengono rappresentate separatamente, tramite appositi oggetti risultato.
+* Questa separazione mantiene distinto il dato originale dalla sua elaborazione.
+* L'architettura separa le responsabilità principali in `NormalizzazioneService`, `AssociazioneService`, `ViesService`, `CambioValutaService` e `RiconciliazioneService`, evitando di concentrare tutta la logica in un'unica classe.
+* `RiconciliazioneService` orchestra la composizione dei risultati delle fasi precedenti e costruisce il report finale senza assumere la responsabilità del caricamento dei dati o del calcolo dei tassi di cambio.
+* Il `Main` si limita a coordinare le diverse fasi dell'elaborazione e alla stampa del risultato finale, mantenendo la logica di dominio nei relativi service.
+
+## Parsing CSV
+
+* È stata utilizzata la libreria Apache Commons CSV per il parsing dei file CSV.
+* Inizialmente era stato implementato un parsing minimale tramite `String.split(",")`, ma questo approccio non gestiva correttamente i campi CSV racchiusi tra virgolette contenenti virgole, come gli importi nel formato `1.234,56`.
+* È stata quindi preferita una libreria standardizzata per gestire correttamente il formato CSV senza implementare manualmente un parser più complesso.
+* La scelta consente di mantenere il codice più semplice e leggibile, evitando di dedicare una parte significativa del progetto alla gestione dei dettagli del formato CSV, che non rappresentano il focus del tool di riconciliazione.
+
 ## Gestione e normalizzazione dei dati
 
 * I dati in ingresso vengono analizzati campo per campo in base al loro significato e alle regole del dominio.
@@ -37,12 +57,19 @@
 * **Importo:** viene mantenuto come `String` durante il caricamento per preservare il formato originale e viene convertito durante la normalizzazione in un formato numerico coerente. Sono supportati valori come `1234.56`, `1234,56` e `1.234,56`. Un importo mancante o non interpretabile viene considerato un errore.
 * **Importi negativi:** vengono considerati valori validi dal punto di vista della normalizzazione, purché siano numericamente interpretabili. Non bloccano quindi l'elaborazione, poiché possono rappresentare casi legittimi come storni o note di credito.
 
-## Parsing CSV
+## Associazione fatture-clienti
 
-* È stata utilizzata la libreria Apache Commons CSV per il parsing dei file CSV.
-* Inizialmente era stato implementato un parsing minimale tramite `String.split(",")`, ma questo approccio non gestiva correttamente i campi CSV racchiusi tra virgolette contenenti virgole, come gli importi nel formato `1.234,56`.
-* È stata quindi preferita una libreria standardizzata per gestire correttamente il formato CSV senza implementare manualmente un parser più complesso.
-* La scelta consente di mantenere il codice più semplice e leggibile, evitando di dedicare una parte significativa del progetto alla gestione dei dettagli del formato CSV, che non rappresentano il focus del tool di riconciliazione.
+* L'associazione viene effettuata prioritariamente tramite `cliente_id`, considerato l'identificativo univoco del cliente.
+* Se `cliente_id` è presente ma non corrisponde ad alcun cliente nel registro, viene tentata una seconda associazione tramite `cliente_nome` normalizzato.
+* Se `cliente_id` è mancante, viene utilizzato direttamente `cliente_nome` come criterio alternativo.
+* La corrispondenza tramite nome viene accettata automaticamente solo quando identifica un unico cliente.
+* Se `cliente_id` è mancante o inesistente e l'associazione tramite nome riesce, la fattura viene associata ma il problema relativo all'ID viene comunque mantenuto nel risultato.
+* In caso di nessuna corrispondenza tramite nome, la fattura non viene associata e viene registrato il relativo problema.
+* In caso di più clienti con lo stesso nome, la fattura non viene associata automaticamente per evitare una scelta arbitraria.
+* L'associazione utilizza i risultati della normalizzazione dei clienti e delle fatture, così da confrontare dati già resi coerenti.
+* Un cliente con `StatoNormalizzazione.ERRORE` può comunque essere utilizzato per l'associazione se la sua identità è determinabile in modo affidabile tramite ID o tramite un nome univoco. I problemi di qualità del cliente vengono mantenuti e potranno essere riportati nelle fasi successive.
+* L'associazione viene rappresentata tramite `RisultatoAssociazione` invece di modificare `Fattura`, mantenendo separati i dati di input dai risultati dell'elaborazione.
+* Il metodo utilizzato per l'associazione viene rappresentato tramite l'enum `MetodoAssociazione`, con valori distinti per associazione tramite ID e tramite nome.
 
 ## Verifica VIES
 
@@ -61,20 +88,6 @@
 * Se una fattura non può essere associata a un cliente, il `ViesService` non produce un esito VIES per quella fattura e lascia la gestione del problema alla fase di riconciliazione finale.
 * Il `ViesService` si occupa esclusivamente di interpretare le risposte del mock VIES e produrre i relativi `RisultatoVies`, senza gestire i problemi di associazione delle fatture.
 * Gli esiti VIES diversi da `VALID` vengono riportati come anomalie nel risultato della riconciliazione. Un'anomalia VIES non rende automaticamente la fattura non processabile, se i dati necessari alla riconciliazione economica sono comunque disponibili.
-
-## Associazione fatture-clienti
-
-* L'associazione viene effettuata prioritariamente tramite `cliente_id`, considerato l'identificativo univoco del cliente.
-* Se `cliente_id` è presente ma non corrisponde ad alcun cliente nel registro, viene tentata una seconda associazione tramite `cliente_nome` normalizzato.
-* Se `cliente_id` è mancante, viene utilizzato direttamente `cliente_nome` come criterio alternativo.
-* La corrispondenza tramite nome viene accettata automaticamente solo quando identifica un unico cliente.
-* Se `cliente_id` è mancante o inesistente e l'associazione tramite nome riesce, la fattura viene associata ma il problema relativo all'ID viene comunque mantenuto nel risultato.
-* In caso di nessuna corrispondenza tramite nome, la fattura non viene associata e viene registrato il relativo problema.
-* In caso di più clienti con lo stesso nome, la fattura non viene associata automaticamente per evitare una scelta arbitraria.
-* L'associazione utilizza i risultati della normalizzazione dei clienti e delle fatture, così da confrontare dati già resi coerenti.
-* Un cliente con `StatoNormalizzazione.ERRORE` può comunque essere utilizzato per l'associazione se la sua identità è determinabile in modo affidabile tramite ID o tramite un nome univoco. I problemi di qualità del cliente vengono mantenuti e potranno essere riportati nelle fasi successive.
-* L'associazione viene rappresentata tramite `RisultatoAssociazione` invece di modificare `Fattura`, mantenendo separati i dati di input dai risultati dell'elaborazione.
-* Il metodo utilizzato per l'associazione viene rappresentato tramite l'enum `MetodoAssociazione`, con valori distinti per associazione tramite ID e tramite nome.
 
 ## Conversione delle valute
 
@@ -115,20 +128,17 @@
 * `ReportRiconciliazione` contiene l'elenco dei risultati per fattura, il numero totale delle fatture, il numero di fatture processabili, il numero di fatture non processabili e il totale EUR riconciliato.
 * Il totale EUR viene calcolato sommando esclusivamente gli importi EUR delle fatture `processabile=true`.
 * Le fatture non processabili rimangono comunque presenti nel report con i relativi problemi, ma non contribuiscono al totale.
+* Il report contiene inoltre un riepilogo delle modalità di associazione, distinguendo le fatture associate tramite ID, tramite nome e non associate.
+* Il report contiene inoltre un riepilogo degli esiti VIES prodotti sui clienti effettivamente associati.
 * La stampa finale viene effettuata dopo il completamento delle fasi di elaborazione, mantenendo il `Main` principalmente come orchestratore del flusso.
-
-## Modello di elaborazione
-
-* La classe `Fattura` rappresenta il dato della fattura in ingresso e non viene modificata per contenere errori o informazioni relative al processo di riconciliazione.
-* Le informazioni prodotte durante la normalizzazione vengono rappresentate separatamente rispetto ai dati originali.
-* Vengono utilizzati risultati distinti per la normalizzazione di clienti e fatture.
-* Lo stato della normalizzazione è rappresentato da un enum comune a clienti e fatture con i valori `VALIDO`, `NORMALIZZATO` ed `ERRORE`.
-* I risultati della normalizzazione contengono una lista di problemi, in modo da poter registrare più anomalie contemporaneamente senza perderne informazioni.
-* Le informazioni prodotte durante l'elaborazione successiva vengono rappresentate separatamente, tramite appositi oggetti risultato.
-* Questa separazione mantiene distinto il dato originale dalla sua elaborazione.
-* L'architettura separa le responsabilità principali in `NormalizzazioneService`, `AssociazioneService`, `ViesService`, `CambioValutaService` e `RiconciliazioneService`, evitando di concentrare tutta la logica in un'unica classe.
-* `RiconciliazioneService` orchestra la composizione dei risultati delle fasi precedenti e costruisce il report finale senza assumere la responsabilità del caricamento dei dati o del calcolo dei tassi di cambio.
-* Il `Main` si limita a coordinare le diverse fasi dell'elaborazione e alla stampa del risultato finale, mantenendo la logica di dominio nei relativi service.
+* È stato aggiunto un generatore dedicato al report JSON (`ReportWriter`) per produrre un formato esterno più compatto rispetto alla serializzazione diretta del modello interno.
+* Il modello utilizzato per il JSON (`RisultatoReportJson`) espone solamente i dati necessari al report, evitando di serializzare nuovamente gli oggetti interni `Fattura`, `Cliente` e `RisultatoVies`.
+* Il formato JSON contiene il riepilogo generale, il riepilogo delle associazioni, il riepilogo degli esiti VIES e i risultati delle singole fatture.
+* Il report JSON viene scritto nel percorso `output/report.json`. La directory viene creata automaticamente se non esiste.
+* Ad ogni esecuzione il file viene sovrascritto, evitando duplicazioni o residui derivanti da esecuzioni precedenti.
+* Gli errori durante la scrittura del report JSON vengono gestiti dal `ReportWriter` senza modificare la logica di riconciliazione.
+* Le date del modello vengono serializzate nel formato ISO, utilizzando il modulo Jackson `JavaTimeModule` e disabilitando la serializzazione delle date come timestamp.
+* Il report JSON è considerato un formato di output separato dal modello interno: eventuali modifiche alla struttura del JSON possono quindi essere effettuate senza modificare la logica della riconciliazione.
 
 ## Test
 
@@ -136,8 +146,12 @@
 * I test sono stati generati con il supporto dell'AI, richiedendo esplicitamente la verifica delle casistiche più importanti e rappresentative delle principali decisioni di dominio.
 * La suite attuale copre le principali aree di rischio individuate: normalizzazione degli importi, gestione degli importi mancanti, non numerici e negativi, associazione tramite ID e tramite nome, distinzione degli esiti VIES, utilizzo del tasso USD contrattuale, gestione degli importi in EUR, gestione di un ID fattura mancante, errori del servizio di cambio e comportamento della riconciliazione in presenza di anomalie VIES.
 * Sono stati inclusi anche test di robustezza per verificare che dati non interpretabili o errori dei servizi esterni non provochino eccezioni non gestite durante l'elaborazione della singola fattura.
+* Sono stati aggiunti test specifici per `ReportWriter`, verificando la creazione del report JSON e la presenza dei principali dati riepilogativi.
+* È stato aggiunto un test che verifica la sovrascrittura del report JSON esistente, così da verificare il comportamento in caso di esecuzioni ripetute.
 * I test non hanno l'obiettivo di coprire ogni possibile combinazione di input, ma di verificare le regole fondamentali sulle quali si basa il comportamento del tool.
-* La suite finale comprende 13 test, tutti superati, senza failure, errori o test saltati.
-* È stata inoltre eseguita un'elaborazione completa sui dati forniti, composta da 28 fatture. L'elaborazione ha prodotto 23 fatture processabili e 5 non processabili, senza interrompere il batch in presenza di errori relativi a singole fatture.
+* La suite finale comprende 15 test, tutti superati, senza failure, errori o test saltati.
+* È stata inoltre eseguita un'elaborazione completa sui dati forniti, composta da 28 fatture. L'elaborazione ha prodotto 24 fatture processabili e 4 non processabili, senza interrompere il batch in presenza di errori relativi a singole fatture.
+* Nell'elaborazione completa è stato verificato anche il fallback dell'associazione tramite nome: una fattura con `cliente_id` mancante può essere associata a un cliente univoco tramite nome e rimanere processabile, mantenendo comunque l'anomalia relativa all'ID nel risultato.
 * Durante l'esecuzione reale è stato verificato anche il comportamento in presenza di un errore del servizio Frankfurter: la fattura interessata viene mantenuta nel report come non processabile, senza impedire l'elaborazione delle fatture successive.
+* È stata verificata inoltre la riesecuzione del programma sullo stesso percorso di output, confermando che il file `output/report.json` viene sovrascritto senza generare duplicazioni.
 * Con più tempo a disposizione sarebbe stata ampliata la suite per coprire ulteriori casi limite e combinazioni di anomalie, in particolare scenari aggiuntivi di normalizzazione, associazione ambigua, errori dei servizi esterni, conversioni valutarie e composizione del report finale.

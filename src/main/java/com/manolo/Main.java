@@ -13,11 +13,7 @@ import com.manolo.repository.CambioValutaRepository;
 import com.manolo.repository.ClienteRepository;
 import com.manolo.repository.FatturaRepository;
 import com.manolo.repository.ViesRepository;
-import com.manolo.service.AssociazioneService;
-import com.manolo.service.CambioValutaService;
-import com.manolo.service.NormalizzazioneService;
-import com.manolo.service.RiconciliazioneService;
-import com.manolo.service.ViesService;
+import com.manolo.service.*;
 
 import java.util.List;
 import java.util.Map;
@@ -230,6 +226,18 @@ public class Main {
         System.out.println(
                 "MANCANTE: "
                         + report.getViesMancante()
+        );
+
+        // =========================
+        // REPORT JSON
+        // =========================
+
+        ReportWriter reportWriter =
+                new ReportWriter();
+
+        reportWriter.scrivi(
+                report,
+                "output/report.json"
         );
     }
 }
