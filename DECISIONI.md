@@ -129,3 +129,12 @@
 * L'architettura separa le responsabilità principali in `NormalizzazioneService`, `AssociazioneService`, `ViesService`, `CambioValutaService` e `RiconciliazioneService`, evitando di concentrare tutta la logica in un'unica classe.
 * `RiconciliazioneService` orchestra la composizione dei risultati delle fasi precedenti e costruisce il report finale senza assumere la responsabilità del caricamento dei dati o del calcolo dei tassi di cambio.
 * Il `Main` si limita a coordinare le diverse fasi dell'elaborazione e alla stampa del risultato finale, mantenendo la logica di dominio nei relativi service.
+
+## Test
+
+* Sono stati realizzati test automatici sulle principali regole e casistiche considerate più rilevanti per il funzionamento del tool.
+* I test sono stati generati con il supporto dell'AI, richiedendo esplicitamente la verifica delle casistiche più importanti e rappresentative delle principali decisioni di dominio.
+* La suite attuale copre le principali aree di rischio individuate: normalizzazione degli importi, gestione degli importi mancanti e negativi, associazione tramite ID e tramite nome, distinzione degli esiti VIES, utilizzo del tasso USD contrattuale, gestione degli importi in EUR e comportamento della riconciliazione in presenza di anomalie VIES.
+* I test non hanno l'obiettivo di coprire ogni possibile combinazione di input, ma di verificare le regole fondamentali sulle quali si basa il comportamento del tool.
+* Con più tempo a disposizione sarebbe stata ampliata la suite per coprire ulteriori casi limite e combinazioni di anomalie, in particolare scenari aggiuntivi di normalizzazione, associazione ambigua, errori dei servizi esterni, conversioni valutarie e composizione del report finale.
+* L'esecuzione finale della suite ha prodotto 10 test eseguiti, tutti superati, senza failure, errori o test saltati.
