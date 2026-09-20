@@ -574,14 +574,6 @@ Il riepilogo VIES sui 14 clienti dell'anagrafica è:
 
 ### Analisi statica
 
-È stata inoltre eseguita un'analisi statica del progetto tramite SonarQube Cloud.
+È stata inoltre eseguita un'analisi statica tramite SonarQube Cloud. Il progetto ha superato il Quality Gate, con 0 issue relative a Security, Reliability e Maintainability e il 100% dei Security Hotspots revisionati.
 
-L'analisi ha rilevato:
-
-* **0 bug**
-* **0 vulnerabilità**
-* **0 code smell**
-* **0 security hotspot**
-* **4,2% di duplicazione complessiva**
-
-La duplicazione rilevata è concentrata principalmente in classi risultato e DTO con strutture simili, come costruttori e metodi di accesso.
+![SonarQube Quality Gate](docs/sonarqube.png)
