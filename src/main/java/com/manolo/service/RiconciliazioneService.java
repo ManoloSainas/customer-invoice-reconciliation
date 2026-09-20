@@ -12,6 +12,7 @@ import com.manolo.model.RisultatoVies;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class RiconciliazioneService {
 
@@ -28,8 +29,13 @@ public class RiconciliazioneService {
 
             RisultatoAssociazione associazione =
                     associazioni.stream()
-                            .filter(a -> a.getFattura().getIdFattura()
-                                    .equals(fattura.getIdFattura()))
+                            .filter(a -> a != null
+                                    && a.getFattura() != null
+                                    && Objects.equals(
+                                    a.getFattura().getIdFattura(),
+                                    fattura != null
+                                            ? fattura.getIdFattura()
+                                            : null))
                             .findFirst()
                             .orElse(null);
 
@@ -45,16 +51,21 @@ public class RiconciliazioneService {
                 cliente = associazione.getCliente();
                 metodoAssociazione = associazione.getMetodo();
 
-                problemi.addAll(associazione.getProblemi());
+                if (associazione.getProblemi() != null) {
+                    problemi.addAll(associazione.getProblemi());
+                }
 
                 // Recupero il risultato VIES del cliente associato
-                if (cliente != null) {
+                if (cliente != null && risultatiVies != null) {
 
                     String idCliente = cliente.getIdCliente();
 
                     risultatoVies = risultatiVies.stream()
-                            .filter(v -> v.getCliente().getIdCliente()
-                                    .equals(idCliente))
+                            .filter(v -> v != null
+                                    && v.getCliente() != null
+                                    && Objects.equals(
+                                    v.getCliente().getIdCliente(),
+                                    idCliente))
                             .findFirst()
                             .orElse(null);
                 }

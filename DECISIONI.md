@@ -134,7 +134,10 @@
 
 * Sono stati realizzati test automatici sulle principali regole e casistiche considerate più rilevanti per il funzionamento del tool.
 * I test sono stati generati con il supporto dell'AI, richiedendo esplicitamente la verifica delle casistiche più importanti e rappresentative delle principali decisioni di dominio.
-* La suite attuale copre le principali aree di rischio individuate: normalizzazione degli importi, gestione degli importi mancanti e negativi, associazione tramite ID e tramite nome, distinzione degli esiti VIES, utilizzo del tasso USD contrattuale, gestione degli importi in EUR e comportamento della riconciliazione in presenza di anomalie VIES.
+* La suite attuale copre le principali aree di rischio individuate: normalizzazione degli importi, gestione degli importi mancanti, non numerici e negativi, associazione tramite ID e tramite nome, distinzione degli esiti VIES, utilizzo del tasso USD contrattuale, gestione degli importi in EUR, gestione di un ID fattura mancante, errori del servizio di cambio e comportamento della riconciliazione in presenza di anomalie VIES.
+* Sono stati inclusi anche test di robustezza per verificare che dati non interpretabili o errori dei servizi esterni non provochino eccezioni non gestite durante l'elaborazione della singola fattura.
 * I test non hanno l'obiettivo di coprire ogni possibile combinazione di input, ma di verificare le regole fondamentali sulle quali si basa il comportamento del tool.
+* La suite finale comprende 13 test, tutti superati, senza failure, errori o test saltati.
+* È stata inoltre eseguita un'elaborazione completa sui dati forniti, composta da 28 fatture. L'elaborazione ha prodotto 23 fatture processabili e 5 non processabili, senza interrompere il batch in presenza di errori relativi a singole fatture.
+* Durante l'esecuzione reale è stato verificato anche il comportamento in presenza di un errore del servizio Frankfurter: la fattura interessata viene mantenuta nel report come non processabile, senza impedire l'elaborazione delle fatture successive.
 * Con più tempo a disposizione sarebbe stata ampliata la suite per coprire ulteriori casi limite e combinazioni di anomalie, in particolare scenari aggiuntivi di normalizzazione, associazione ambigua, errori dei servizi esterni, conversioni valutarie e composizione del report finale.
-* L'esecuzione finale della suite ha prodotto 10 test eseguiti, tutti superati, senza failure, errori o test saltati.

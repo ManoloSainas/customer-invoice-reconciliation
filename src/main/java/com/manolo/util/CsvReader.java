@@ -4,8 +4,11 @@ import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
 
-import java.io.FileReader;
 import java.io.IOException;
+import java.io.Reader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -15,11 +18,14 @@ public class CsvReader {
 
         List<String[]> dati = new ArrayList<>();
 
-        try (CSVParser parser = CSVFormat.DEFAULT.builder()
-                .setHeader()
-                .setSkipHeaderRecord(true)
-                .get()
-                .parse(new FileReader(percorso))) {
+        try (Reader reader = Files.newBufferedReader(
+                Path.of(percorso),
+                StandardCharsets.UTF_8);
+             CSVParser parser = CSVFormat.DEFAULT.builder()
+                     .setHeader()
+                     .setSkipHeaderRecord(true)
+                     .get()
+                     .parse(reader)) {
 
             for (CSVRecord record : parser) {
                 String[] campi = new String[record.size()];
@@ -32,7 +38,10 @@ public class CsvReader {
             }
 
         } catch (IOException e) {
-            e.printStackTrace();
+            throw new IllegalStateException(
+                    "Impossibile leggere il file: " + percorso,
+                    e
+            );
         }
 
         return dati;

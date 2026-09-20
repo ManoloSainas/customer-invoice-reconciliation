@@ -11,6 +11,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class CambioValutaService {
 
@@ -32,16 +33,15 @@ public class CambioValutaService {
 
             Fattura fattura = risultatoFattura.getFattura();
 
-            // Controllo solo gli errori che impediscono effettivamente
-            // la conversione della fattura.
-            if (risultatoFattura.getProblemi().contains("Importo mancante")
-                    || risultatoFattura.getProblemi().contains("Valuta mancante")
-                    || risultatoFattura.getProblemi().contains("Data di emissione mancante")) {
+            // Una fattura con problemi di normalizzazione non può
+            // essere convertita in modo affidabile.
+            if (risultatoFattura.getProblemi() != null
+                    && !risultatoFattura.getProblemi().isEmpty()) {
 
                 risultati.add(new RisultatoConversione(
                         fattura,
                         null,
-                        fattura.getValuta(),
+                        fattura != null ? fattura.getValuta() : null,
                         null,
                         null,
                         false,
@@ -51,9 +51,27 @@ public class CambioValutaService {
                 continue;
             }
 
+            if (fattura == null) {
+
+                risultati.add(new RisultatoConversione(
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        false,
+                        "Fattura non disponibile"
+                ));
+
+                continue;
+            }
+
             RisultatoAssociazione associazione = associazioni.stream()
-                    .filter(a -> a.getFattura().getIdFattura()
-                            .equals(fattura.getIdFattura()))
+                    .filter(a -> a != null
+                            && a.getFattura() != null
+                            && Objects.equals(
+                            a.getFattura().getIdFattura(),
+                            fattura.getIdFattura()))
                     .findFirst()
                     .orElse(null);
 
@@ -61,7 +79,7 @@ public class CambioValutaService {
 
                 risultati.add(new RisultatoConversione(
                         fattura,
-                        new BigDecimal(fattura.getImporto()),
+                        null,
                         fattura.getValuta(),
                         null,
                         null,
@@ -74,8 +92,24 @@ public class CambioValutaService {
 
             Cliente cliente = associazione.getCliente();
 
-            BigDecimal importo =
-                    new BigDecimal(fattura.getImporto());
+            BigDecimal importo;
+
+            try {
+                importo = new BigDecimal(fattura.getImporto());
+            } catch (NumberFormatException e) {
+
+                risultati.add(new RisultatoConversione(
+                        fattura,
+                        null,
+                        fattura.getValuta(),
+                        null,
+                        null,
+                        false,
+                        "Formato importo non valido"
+                ));
+
+                continue;
+            }
 
             String valuta = fattura.getValuta();
 
@@ -95,9 +129,11 @@ public class CambioValutaService {
                 continue;
             }
 
-            // USD con tasso contrattuale
+            // USD con tasso contrattuale valido
             if ("USD".equals(valuta)
-                    && cliente.getTassoUsdContrattuale() != null) {
+                    && cliente.getTassoUsdContrattuale() != null
+                    && cliente.getTassoUsdContrattuale()
+                    .compareTo(BigDecimal.ZERO) > 0) {
 
                 BigDecimal tasso =
                         cliente.getTassoUsdContrattuale();
@@ -144,6 +180,12 @@ public class CambioValutaService {
 
             } catch (RuntimeException e) {
 
+                String problema = e.getMessage();
+
+                if (problema == null || problema.isBlank()) {
+                    problema = "Errore durante la conversione della valuta";
+                }
+
                 risultati.add(new RisultatoConversione(
                         fattura,
                         importo,
@@ -151,7 +193,7 @@ public class CambioValutaService {
                         null,
                         null,
                         false,
-                        e.getMessage()
+                        problema
                 ));
             }
         }

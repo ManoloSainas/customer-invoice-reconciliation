@@ -9,6 +9,7 @@ import com.manolo.repository.ViesRepository;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 public class ViesService {
 
@@ -24,11 +25,21 @@ public class ViesService {
         Map<String, String> risposte =
                 viesRepository.getRisposteVies();
 
+        if (risposte == null) {
+            throw new IllegalStateException(
+                    "Risposte VIES non disponibili"
+            );
+        }
+
         List<RisultatoVies> risultati = new ArrayList<>();
 
         List<Cliente> clientiVerificati = new ArrayList<>();
 
         for (RisultatoAssociazione associazione : associazioni) {
+
+            if (associazione == null) {
+                continue;
+            }
 
             Cliente cliente = associazione.getCliente();
 
@@ -37,8 +48,10 @@ public class ViesService {
             }
 
             boolean giaVerificato = clientiVerificati.stream()
-                    .anyMatch(c -> c.getIdCliente()
-                            .equals(cliente.getIdCliente()));
+                    .anyMatch(c -> c != null
+                            && Objects.equals(
+                            c.getIdCliente(),
+                            cliente.getIdCliente()));
 
             if (giaVerificato) {
                 continue;
