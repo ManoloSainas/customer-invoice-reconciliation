@@ -17,9 +17,7 @@ public class CambioValutaService {
 
     private final CambioValutaRepository cambioValutaRepository;
 
-    public CambioValutaService(
-            CambioValutaRepository cambioValutaRepository) {
-
+    public CambioValutaService(CambioValutaRepository cambioValutaRepository) {
         this.cambioValutaRepository = cambioValutaRepository;
     }
 
@@ -29,30 +27,12 @@ public class CambioValutaService {
 
         List<RisultatoConversione> risultati = new ArrayList<>();
 
-        for (RisultatoNormalizzazioneFattura risultatoFattura : fattureNormalizzate) {
+        for (RisultatoNormalizzazioneFattura risultatoFattura :
+                fattureNormalizzate) {
 
             Fattura fattura = risultatoFattura.getFattura();
 
-            // Una fattura con problemi di normalizzazione non può
-            // essere convertita in modo affidabile.
-            if (risultatoFattura.getProblemi() != null
-                    && !risultatoFattura.getProblemi().isEmpty()) {
-
-                risultati.add(new RisultatoConversione(
-                        fattura,
-                        null,
-                        fattura != null ? fattura.getValuta() : null,
-                        null,
-                        null,
-                        false,
-                        String.join(", ", risultatoFattura.getProblemi())
-                ));
-
-                continue;
-            }
-
             if (fattura == null) {
-
                 risultati.add(new RisultatoConversione(
                         null,
                         null,
@@ -62,20 +42,21 @@ public class CambioValutaService {
                         false,
                         "Fattura non disponibile"
                 ));
-
                 continue;
             }
 
-            RisultatoAssociazione associazione = associazioni.stream()
-                    .filter(a -> a != null
-                            && a.getFattura() != null
-                            && Objects.equals(
-                            a.getFattura().getIdFattura(),
-                            fattura.getIdFattura()))
-                    .findFirst()
-                    .orElse(null);
+            RisultatoAssociazione associazione =
+                    associazioni.stream()
+                            .filter(a -> a != null
+                                    && a.getFattura() != null
+                                    && Objects.equals(
+                                    a.getFattura().getIdFattura(),
+                                    fattura.getIdFattura()))
+                            .findFirst()
+                            .orElse(null);
 
-            if (associazione == null || associazione.getCliente() == null) {
+            if (associazione == null
+                    || associazione.getCliente() == null) {
 
                 risultati.add(new RisultatoConversione(
                         fattura,
@@ -86,7 +67,50 @@ public class CambioValutaService {
                         false,
                         "Cliente non associato"
                 ));
+                continue;
+            }
 
+            if (fattura.getImporto() == null
+                    || fattura.getImporto().isBlank()) {
+
+                risultati.add(new RisultatoConversione(
+                        fattura,
+                        null,
+                        fattura.getValuta(),
+                        null,
+                        null,
+                        false,
+                        "Importo mancante"
+                ));
+                continue;
+            }
+
+            if (fattura.getValuta() == null
+                    || fattura.getValuta().isBlank()) {
+
+                risultati.add(new RisultatoConversione(
+                        fattura,
+                        null,
+                        null,
+                        null,
+                        null,
+                        false,
+                        "Valuta mancante"
+                ));
+                continue;
+            }
+
+            if (fattura.getDataEmissione() == null) {
+
+                risultati.add(new RisultatoConversione(
+                        fattura,
+                        null,
+                        fattura.getValuta(),
+                        null,
+                        null,
+                        false,
+                        "Data emissione mancante"
+                ));
                 continue;
             }
 
@@ -107,20 +131,22 @@ public class CambioValutaService {
                         false,
                         "Formato importo non valido"
                 ));
-
                 continue;
             }
 
             String valuta = fattura.getValuta();
 
-            // EUR non richiede conversione
+            // =========================
+            // EUR
+            // =========================
+
             if ("EUR".equals(valuta)) {
 
                 risultati.add(new RisultatoConversione(
                         fattura,
                         importo,
                         valuta,
-                        importo,
+                        importo.setScale(2, RoundingMode.HALF_UP),
                         BigDecimal.ONE,
                         true,
                         null
@@ -129,7 +155,10 @@ public class CambioValutaService {
                 continue;
             }
 
-            // USD con tasso contrattuale valido
+            // =========================
+            // USD CON TASSO CONTRATTUALE
+            // =========================
+
             if ("USD".equals(valuta)
                     && cliente.getTassoUsdContrattuale() != null
                     && cliente.getTassoUsdContrattuale()
@@ -155,7 +184,10 @@ public class CambioValutaService {
                 continue;
             }
 
-            // Conversione tramite Frankfurter
+            // =========================
+            // CAMBIO ECB / FRANKFURTER
+            // =========================
+
             try {
 
                 BigDecimal tasso =
@@ -183,7 +215,8 @@ public class CambioValutaService {
                 String problema = e.getMessage();
 
                 if (problema == null || problema.isBlank()) {
-                    problema = "Errore durante la conversione della valuta";
+                    problema =
+                            "Errore durante la conversione della valuta";
                 }
 
                 risultati.add(new RisultatoConversione(

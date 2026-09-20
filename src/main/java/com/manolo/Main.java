@@ -146,6 +146,10 @@ public class Main {
             );
         }
 
+        // =========================
+        // TOTALI
+        // =========================
+
         System.out.println();
         System.out.println("===== TOTALI =====");
 
@@ -168,6 +172,64 @@ public class Main {
                 "Totale EUR riconciliato: "
                         + report.getTotaleEuro()
         );
+
+        // =========================
+        // ASSOCIAZIONE
+        // =========================
+
+        System.out.println();
+        System.out.println("===== ASSOCIAZIONE =====");
+
+        System.out.println(
+                "Associate tramite ID: "
+                        + report.getAssociazioniId()
+        );
+
+        System.out.println(
+                "Associate tramite nome: "
+                        + report.getAssociazioniNome()
+        );
+
+        System.out.println(
+                "Non associate: "
+                        + report.getNonAssociate()
+        );
+
+        // =========================
+        // ESITI VIES
+        // =========================
+
+        System.out.println();
+        System.out.println("===== ESITI VIES =====");
+
+        System.out.println(
+                "VALID: "
+                        + report.getViesValid()
+        );
+
+        System.out.println(
+                "INVALID: "
+                        + report.getViesInvalid()
+        );
+
+        System.out.println(
+                "ERROR: "
+                        + report.getViesError()
+        );
+
+        System.out.println(
+                "NON_SUPPORTATO: "
+                        + report.getViesNonSupportato()
+        );
+
+        System.out.println(
+                "NON_VERIFICATA: "
+                        + report.getViesNonVerificata()
+        );
+
+        System.out.println(
+                "MANCANTE: "
+                        + report.getViesMancante()
+        );
     }
 }
-

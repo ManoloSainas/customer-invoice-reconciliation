@@ -45,9 +45,7 @@ public class RiconciliazioneService {
 
             List<String> problemi = new ArrayList<>();
 
-            // Recupero il risultato dell'associazione
             if (associazione != null) {
-
                 cliente = associazione.getCliente();
                 metodoAssociazione = associazione.getMetodo();
 
@@ -55,9 +53,7 @@ public class RiconciliazioneService {
                     problemi.addAll(associazione.getProblemi());
                 }
 
-                // Recupero il risultato VIES del cliente associato
                 if (cliente != null && risultatiVies != null) {
-
                     String idCliente = cliente.getIdCliente();
 
                     risultatoVies = risultatiVies.stream()
@@ -69,48 +65,32 @@ public class RiconciliazioneService {
                             .findFirst()
                             .orElse(null);
                 }
-
             } else {
                 problemi.add("Risultato associazione non disponibile");
             }
 
-            // Gestione esito VIES
             if (risultatoVies != null) {
-
                 switch (risultatoVies.getEsito()) {
-
                     case INVALID ->
-                            problemi.add(
-                                    "Partita IVA non valida secondo VIES"
-                            );
+                            problemi.add("Partita IVA non valida secondo VIES");
 
                     case ERROR ->
-                            problemi.add(
-                                    "Errore durante la verifica VIES"
-                            );
+                            problemi.add("Errore durante la verifica VIES");
 
                     case NON_SUPPORTATO ->
-                            problemi.add(
-                                    "Paese non supportato da VIES"
-                            );
+                            problemi.add("Paese non supportato da VIES");
 
                     case NON_VERIFICATA ->
-                            problemi.add(
-                                    "Partita IVA non verificata"
-                            );
+                            problemi.add("Partita IVA non verificata");
 
                     case MANCANTE ->
-                            problemi.add(
-                                    "Partita IVA mancante"
-                            );
+                            problemi.add("Partita IVA mancante");
 
                     case VALID -> {
-                        // Nessun problema
                     }
                 }
             }
 
-            // Recupero eventuali problemi della conversione
             if (conversione.getProblema() != null
                     && !conversione.getProblema().isBlank()) {
 
@@ -127,31 +107,64 @@ public class RiconciliazioneService {
                     conversione.getImportoEuro(),
                     conversione.getTassoCambio(),
                     conversione.isProcessabile(),
-                    problemi
-            ));
+                    problemi));
         }
 
-        // Calcolo dei totali
         int totaleFatture = risultati.size();
         int fattureProcessabili = 0;
         int fattureNonProcessabili = 0;
-
         BigDecimal totaleEuro = BigDecimal.ZERO;
 
         for (RisultatoRiconciliazione risultato : risultati) {
-
             if (risultato.isProcessabile()) {
-
                 fattureProcessabili++;
 
                 if (risultato.getImportoEuro() != null) {
                     totaleEuro = totaleEuro.add(
-                            risultato.getImportoEuro()
-                    );
+                            risultato.getImportoEuro());
                 }
-
             } else {
                 fattureNonProcessabili++;
+            }
+        }
+
+        int associazioniId = 0;
+        int associazioniNome = 0;
+        int nonAssociate = 0;
+
+        for (RisultatoRiconciliazione risultato : risultati) {
+            if (risultato.getMetodoAssociazione() == MetodoAssociazione.ID) {
+                associazioniId++;
+            } else if (risultato.getMetodoAssociazione()
+                    == MetodoAssociazione.NOME) {
+                associazioniNome++;
+            } else {
+                nonAssociate++;
+            }
+        }
+
+        int viesValid = 0;
+        int viesInvalid = 0;
+        int viesError = 0;
+        int viesNonSupportato = 0;
+        int viesNonVerificata = 0;
+        int viesMancante = 0;
+
+        if (risultatiVies != null) {
+            for (RisultatoVies risultato : risultatiVies) {
+
+                if (risultato == null || risultato.getEsito() == null) {
+                    continue;
+                }
+
+                switch (risultato.getEsito()) {
+                    case VALID -> viesValid++;
+                    case INVALID -> viesInvalid++;
+                    case ERROR -> viesError++;
+                    case NON_SUPPORTATO -> viesNonSupportato++;
+                    case NON_VERIFICATA -> viesNonVerificata++;
+                    case MANCANTE -> viesMancante++;
+                }
             }
         }
 
@@ -160,7 +173,16 @@ public class RiconciliazioneService {
                 totaleFatture,
                 fattureProcessabili,
                 fattureNonProcessabili,
-                totaleEuro
-        );
+                totaleEuro,
+                associazioniId,
+                associazioniNome,
+                nonAssociate,
+                viesValid,
+                viesInvalid,
+                viesError,
+                viesNonSupportato,
+                viesNonVerificata,
+                viesMancante);
     }
 }
+
